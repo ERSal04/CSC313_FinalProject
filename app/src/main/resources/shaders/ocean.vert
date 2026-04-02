@@ -12,16 +12,24 @@ uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
+out vec3 fragNormal;
+
+vec3 gerstner(vec3 pos, vec2 dir, float amp, float freq, float spd, float t) {
+    float phase = dot(dir, pos.xz) * freq - t * spd;
+    float x = amp * cos(phase) * dir.x;
+    float y = amp * sin(phase);
+    float z = amp * cos(phase) * dir.y;
+    return vec3(x, y, z);
+}
+
 void main() {
     vec3 pos = position;
 
-    // Dot porduct of direction and position
-    float k = frequency;
-    float phase = dot(direction, pos.xz) * k - time * speed;
+    pos += gerstner(pos, vec2(1.0, 0.0), amplitude, frequency, speed, time);
+    pos += gerstner(pos, vec2(0.8, 0.6), amplitude * 0.5, frequency * 1.5, speed * 0.9, time);
+    pos += gerstner(pos, vec2(-0.5, 0.8), amplitude * 0.3, frequency * 2.0, speed * 1.2, time);
 
-    pos.y += amplitude * sin(phase);
-    pos.x += amplitude * cos(phase) * direction.x;
-    pos.z += amplitude * cos(phase) * direction.y;
+    fragNormal = vec3(0.0, 1.0, 0.0);
 
     gl_Position = projection * view * model * vec4(pos, 1.0);
 }

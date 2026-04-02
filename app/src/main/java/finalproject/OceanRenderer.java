@@ -25,6 +25,9 @@ public class OceanRenderer {
     private float time = 0.0f;
     private float timeOfDay = 0.0f; // 0.0 midnight, 0.5 = noon, 1.0 = midnight again
 
+    private boolean tsunamiActive = false;
+    private float tsunamiStrength = 0.0f;
+
     private ShaderProgram shaderProgram;
 
     public void run() {
@@ -55,6 +58,9 @@ public class OceanRenderer {
         GLFW.glfwSetKeyCallback(window, (win, key, scancode, action, mods) -> {
             if (key == GLFW.GLFW_KEY_ESCAPE && action == GLFW.GLFW_PRESS) {
                 GLFW.glfwSetWindowShouldClose(win, true);
+            }
+            if (key == GLFW.GLFW_KEY_T && action == GLFW.GLFW_PRESS) {
+                tsunamiActive = true;
             }
         });
 
@@ -122,12 +128,60 @@ public class OceanRenderer {
             shaderProgram.setUniformMatrix4f("model", new org.joml.Matrix4f());
 
             timeOfDay += 0.0001f; // Controls how fast the day cycles
+            if (timeOfDay > 1.0f) timeOfDay = 0.0f;
             time += 0.016f;
             shaderProgram.setUniformFloat("time", time);
-            shaderProgram.setUniformFloat("amplitude", 0.8f);
             shaderProgram.setUniformFloat("frequency", 0.3f);
             shaderProgram.setUniformFloat("speed", 1.5f);
             shaderProgram.setUniformVec2("direction", 1.0f, 0.0f);
+
+            float[] midnight = {0.01f, 0.01f, 0.05f};
+            float[] dawn = {0.8f,  0.4f,  0.2f };
+            float[] noon = {0.3f,  0.6f,  1.0f };
+            float[] dusk = {0.6f,  0.2f,  0.1f };
+
+            float skyR, skyG, skyB;
+
+            if(timeOfDay < 0.25f) {
+                float t = timeOfDay / 0.25f;
+                skyR = lerp(midnight[0], dawn[0], t);
+                skyG = lerp(midnight[1], dawn[1], t);
+                skyB = lerp(midnight[2], dawn[2], t);
+            } else if (timeOfDay < 0.5f) {
+                float t = (timeOfDay - 0.25f) / 0.25f;
+                skyR = lerp(dawn[0], noon[0], t);
+                skyG = lerp(dawn[1], noon[1], t);
+                skyB = lerp(dawn[2], noon[2], t);
+            } else if (timeOfDay < 0.75f) {
+                float t = (timeOfDay - 0.50f) / 0.25f;
+                skyR = lerp(noon[0], dusk[0], t);
+                skyG = lerp(noon[1], dusk[1], t);
+                skyB = lerp(noon[2], dusk[2], t);
+            } else {
+                float t = (timeOfDay - 0.75f) / 0.25f;
+                skyR = lerp(dusk[0], midnight[0], t);
+                skyG = lerp(dusk[1], midnight[1], t);
+                skyB = lerp(dusk[2], midnight[2], t);
+            }
+
+            GL11.glClearColor(skyR, skyG, skyB, 1.0f);
+
+            float sunAngle = timeOfDay * 2.0f * (float)Math.PI;
+            float sunX = (float)Math.cos(sunAngle);
+            float sunY = (float)Math.sin(sunAngle);
+            shaderProgram.setUniformVec3("sunDirection", sunX, sunY, 0.0f);
+
+            float moonAngle = sunAngle + (float)Math.PI;
+            float moonY = (float)Math.sin(moonAngle);
+
+            float tidalAmplitude = 0.8f + 0.6f * Math.max(moonY, 0.0f);
+
+            if (tsunamiActive) {
+                tsunamiStrength = Math.min(tsunamiStrength + 0.02f, 1.0f);
+            }
+
+            float finalAmplitude = tidalAmplitude + tsunamiStrength * 8.0f;
+            shaderProgram.setUniformFloat("amplitude", finalAmplitude);
 
             // Rendering goes here
             ocean.render();
@@ -152,5 +206,9 @@ public class OceanRenderer {
 
     public static void main(String[] args) {
         new OceanRenderer().run();
+    }
+
+    private float lerp(float a, float b, float t) {
+        return a + (b - a) * t;
     }
 }
