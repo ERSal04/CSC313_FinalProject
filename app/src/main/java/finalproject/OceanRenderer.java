@@ -1,4 +1,12 @@
+import org.joml.Vector3f;
 import org.lwjgl.glfw.GLFW;
+import org.lwjgl.glfw.GLFWVidMode;
+import org.lwjgl.opengl.GL;
+import org.lwjgl.opengl.GL11;
+
+import finalproject.Camera;
+import finalproject.OceanMesh;
+import finalproject.ShaderProgram;
 
 public class OceanRenderer {
 
@@ -6,6 +14,18 @@ public class OceanRenderer {
     private int width = 1280;
     private int height = 720;
     private String title = "Ocean Simulator";
+
+    private double lastMouseX = width / 2.0;
+    private double lastMouseY = height / 2.0;
+    private boolean firstMouse = true;
+
+    private OceanMesh ocean;
+    private Camera camera;
+
+    private float time = 0.0f;
+    private float timeOfDay = 0.0f; // 0.0 midnight, 0.5 = noon, 1.0 = midnight again
+
+    private ShaderProgram shaderProgram;
 
     public void run() {
         init();
@@ -19,40 +39,115 @@ public class OceanRenderer {
             throw new IllegalStateException("Unable to initialize GLFW");
 
         // 2. Set window hints (OpenGL version, core profile, etc.)
+        GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MAJOR, 4);
+        GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MINOR, 1);
+        GLFW.glfwWindowHint(GLFW.GLFW_OPENGL_PROFILE, GLFW.GLFW_OPENGL_CORE_PROFILE);
+        GLFW.glfwWindowHint(GLFW.GLFW_VISIBLE, GLFW.GLFW_FALSE);
+        GLFW.glfwWindowHint(GLFW.GLFW_OPENGL_FORWARD_COMPAT, GLFW.GLFW_TRUE);
 
         // 3. Create the window and store it in 'window'
         window = GLFW.glfwCreateWindow(width, height, "Ocean Simulation", 0, 0);
+        if(window == 0) {
+            throw new RuntimeException("Failed to crea the GLFW window");
+        }
 
         // 4. Set up a key callback so ESC closes the window
-        
+        GLFW.glfwSetKeyCallback(window, (win, key, scancode, action, mods) -> {
+            if (key == GLFW.GLFW_KEY_ESCAPE && action == GLFW.GLFW_PRESS) {
+                GLFW.glfwSetWindowShouldClose(win, true);
+            }
+        });
 
         // 5. Center the window on the monitor (optional but nice)
+        long monitor = GLFW.glfwGetPrimaryMonitor();
+
+        GLFWVidMode videoMode = GLFW.glfwGetVideoMode(monitor);
+        int monitorWidth = videoMode.width();
+        int monitorHeight = videoMode.height();
+
+        GLFW.glfwSetWindowPos(window, (monitorWidth - width) / 2, (monitorHeight - height) / 2);
+
+        GLFW.glfwShowWindow(window);
 
         // 6. Make the OpenGL context current
+        GLFW.glfwMakeContextCurrent(window);
+        GLFW.glfwSwapInterval(1);
 
         // 7. Call GL.createCapabilities() — don't forget this!
+        GL.createCapabilities();
 
         // 8. Set the clear color
+        GL11.glClearColor(0.0f, 0.1f, 0.2f, 1.0f); // deep ocean blue
+
+        GL11.glEnable(GL11.GL_DEPTH_TEST);
+
+        ocean = new OceanMesh(100, 1.0f);
+        camera = new Camera(new Vector3f(0, 5, 20));
+
+        String vertSrc = ShaderProgram.loadFile("shaders/ocean.vert");
+        String fragSrc = ShaderProgram.loadFile("shaders/ocean.frag");
+        shaderProgram = new ShaderProgram(vertSrc, fragSrc); 
+
+        // Mouse Callback
+        GLFW.glfwSetCursorPosCallback(window, (win, xpos, ypos) -> {
+            if (firstMouse) {
+                lastMouseX = xpos;
+                lastMouseY = ypos;
+                firstMouse = false;
+            }
+
+            float deltaX = (float)(xpos - lastMouseX);
+            float deltaY = (float)(ypos - lastMouseY);
+
+            lastMouseX = xpos;
+            lastMouseY = ypos;
+
+            camera.processMouse(deltaX, deltaY);
+        });
+
+        GLFW.glfwSetInputMode(window, GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
     }
 
     private void loop() {
         // Keep running until the window should close
-        // while ( /* window should not close */ ) {
+        while (!GLFW.glfwWindowShouldClose(window)) {
+            camera.processKeyboard(window);
+        
+            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+            
+            shaderProgram.bind();
 
-        //     // 1. Clear the screen
+            shaderProgram.setUniformMatrix4f("projection", camera.getProjectionMatrix(width, height));
+            shaderProgram.setUniformMatrix4f("view", camera.getViewMatrix());
+            shaderProgram.setUniformMatrix4f("model", new org.joml.Matrix4f());
 
-        //     // 2. --- YOUR RENDERING GOES HERE LATER ---
+            timeOfDay += 0.0001f; // Controls how fast the day cycles
+            time += 0.016f;
+            shaderProgram.setUniformFloat("time", time);
+            shaderProgram.setUniformFloat("amplitude", 0.8f);
+            shaderProgram.setUniformFloat("frequency", 0.3f);
+            shaderProgram.setUniformFloat("speed", 1.5f);
+            shaderProgram.setUniformVec2("direction", 1.0f, 0.0f);
 
-        //     // 3. Swap buffers
+            // Rendering goes here
+            ocean.render();
 
-        //     // 4. Poll for input events
-        // }
+            shaderProgram.unbind();
+
+            GLFW.glfwSwapBuffers(window);
+            GLFW.glfwPollEvents();
+        }
     }
 
     private void cleanup() {
-        // 1. Free the window
+        // Free the window
+        GLFW.glfwDestroyWindow(window);
 
-        // 2. Terminate GLFW
+        shaderProgram.cleanup();
+        ocean.cleanup();
+
+        // Terminate GLFW
+        GLFW.glfwTerminate();
     }
 
     public static void main(String[] args) {
