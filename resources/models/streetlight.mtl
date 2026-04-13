@@ -1,0 +1,15 @@
+# Auto-generated material file
+
+newmtl metal
+Ka 0.2 0.2 0.2
+Kd 0.540 0.540 0.580
+Ks 0.06 0.06 0.06
+Ns 10.0
+map_Kd ../textures/concrete.png
+
+newmtl lamp
+Ka 0.2 0.2 0.2
+Kd 1.000 1.000 0.820
+Ks 0.06 0.06 0.06
+Ns 10.0
+map_Kd ../textures/concrete.png

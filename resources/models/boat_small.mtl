@@ -1,0 +1,29 @@
+# Auto-generated material file
+
+newmtl hull
+Ka 0.2 0.2 0.2
+Kd 0.540 0.370 0.200
+Ks 0.06 0.06 0.06
+Ns 10.0
+map_Kd ../textures/wood_planks.png
+
+newmtl cabin
+Ka 0.2 0.2 0.2
+Kd 0.900 0.900 0.880
+Ks 0.06 0.06 0.06
+Ns 10.0
+map_Kd ../textures/concrete.png
+
+newmtl cabin_roof
+Ka 0.2 0.2 0.2
+Kd 0.620 0.350 0.260
+Ks 0.06 0.06 0.06
+Ns 10.0
+map_Kd ../textures/roof_flat.png
+
+newmtl mast
+Ka 0.2 0.2 0.2
+Kd 0.460 0.320 0.160
+Ks 0.06 0.06 0.06
+Ns 10.0
+map_Kd ../textures/wood_planks.png

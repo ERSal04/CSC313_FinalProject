@@ -1,0 +1,8 @@
+# Auto-generated material file
+
+newmtl wood
+Ka 0.2 0.2 0.2
+Kd 0.600 0.440 0.260
+Ks 0.06 0.06 0.06
+Ns 10.0
+map_Kd ../textures/wood_planks.png

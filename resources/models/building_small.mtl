@@ -1,0 +1,22 @@
+# Auto-generated material file
+
+newmtl brick
+Ka 0.2 0.2 0.2
+Kd 0.800 0.580 0.460
+Ks 0.06 0.06 0.06
+Ns 10.0
+map_Kd ../textures/brick.png
+
+newmtl roof_flat
+Ka 0.2 0.2 0.2
+Kd 0.480 0.460 0.440
+Ks 0.06 0.06 0.06
+Ns 10.0
+map_Kd ../textures/roof_flat.png
+
+newmtl concrete
+Ka 0.2 0.2 0.2
+Kd 0.700 0.700 0.680
+Ks 0.06 0.06 0.06
+Ns 10.0
+map_Kd ../textures/concrete.png

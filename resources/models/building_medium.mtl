@@ -1,0 +1,22 @@
+# Auto-generated material file
+
+newmtl concrete
+Ka 0.2 0.2 0.2
+Kd 0.700 0.700 0.680
+Ks 0.06 0.06 0.06
+Ns 10.0
+map_Kd ../textures/concrete.png
+
+newmtl glass
+Ka 0.2 0.2 0.2
+Kd 0.500 0.620 0.840
+Ks 0.06 0.06 0.06
+Ns 10.0
+map_Kd ../textures/glass_windows.png
+
+newmtl roof_flat
+Ka 0.2 0.2 0.2
+Kd 0.400 0.400 0.380
+Ks 0.06 0.06 0.06
+Ns 10.0
+map_Kd ../textures/roof_flat.png
