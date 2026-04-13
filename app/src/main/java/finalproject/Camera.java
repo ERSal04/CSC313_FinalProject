@@ -33,7 +33,7 @@ public class Camera {
             (float) Math.toRadians(fov), 
             (float) width / height, 
             0.1f, 
-            1000.0f
+            5000.0f
         );
     }
 

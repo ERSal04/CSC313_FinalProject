@@ -5,6 +5,7 @@ import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
 
 import finalproject.Camera;
+import finalproject.CityMesh;
 import finalproject.OceanMesh;
 import finalproject.ShaderProgram;
 
@@ -26,6 +27,15 @@ public class OceanRenderer {
 
     private boolean tsunamiActive = false;
     private float tsunamiStrength = 0.0f;
+    private float tsunamiTime   = 0.0f;
+    private float tsunamiOriginX = -200.0f; // out at sea, west of city
+    private float tsunamiOriginZ = -200.0f;
+
+    private boolean wireframe = false;
+
+    private CityMesh city;
+    private ShaderProgram cityShader;
+    private float waterLevel = 0.0f;
 
     private ShaderProgram shaderProgram;
 
@@ -54,6 +64,9 @@ public class OceanRenderer {
                 GLFW.glfwSetWindowShouldClose(win, true);
             if (key == GLFW.GLFW_KEY_T && action == GLFW.GLFW_PRESS)
                 tsunamiActive = !tsunamiActive; // toggle on/off
+            if (key == GLFW.GLFW_KEY_F && action == GLFW.GLFW_PRESS) {
+                wireframe = !wireframe;
+            }
         });
 
         long monitor = GLFW.glfwGetPrimaryMonitor();
@@ -71,12 +84,18 @@ public class OceanRenderer {
         GL11.glClearColor(0.0f, 0.1f, 0.2f, 1.0f);
         GL11.glEnable(GL11.GL_DEPTH_TEST);
 
-        ocean  = new OceanMesh(100, 1.0f);
+        // Grid size of the ocean. can make it larger using the graphics computer
+        ocean  = new OceanMesh(300, 2.0f);
         camera = new Camera(new Vector3f(0, 5, 20));
 
         String vertSrc = ShaderProgram.loadFile("shaders/ocean.vert");
         String fragSrc = ShaderProgram.loadFile("shaders/ocean.frag");
         shaderProgram  = new ShaderProgram(vertSrc, fragSrc);
+
+        city       = new CityMesh();
+        String cityVert = ShaderProgram.loadFile("shaders/city.vert");
+        String cityFrag = ShaderProgram.loadFile("shaders/city.frag");
+        cityShader = new ShaderProgram(cityVert, cityFrag);
 
         GLFW.glfwSetCursorPosCallback(window, (win, xpos, ypos) -> {
             if (firstMouse) {
@@ -135,8 +154,11 @@ public class OceanRenderer {
             // Tsunami ramp 
             if (tsunamiActive) {
                 tsunamiStrength = Math.min(tsunamiStrength + 0.02f, 1.0f);
-            } else {
-                tsunamiStrength = Math.max(tsunamiStrength - 0.02f, 0.0f);
+                tsunamiTime    += 0.016f;
+            } else if (tsunamiTime > 0) {
+                // Reset after wave passes
+                tsunamiTime = 0.0f;
+                tsunamiStrength = 0.0f;
             }
 
             // Tidal amplitude from moon position 
@@ -167,8 +189,46 @@ public class OceanRenderer {
             float sunY = (float)Math.sin(sunAngle);
             shaderProgram.setUniformVec3("sunDirection", sunX, sunY, 0.3f);
 
+            shaderProgram.setUniformInt  ("tsunamiActive", tsunamiActive ? 1 : 0);
+            shaderProgram.setUniformVec2 ("tsunamiOrigin", tsunamiOriginX, tsunamiOriginZ);
+            shaderProgram.setUniformFloat("tsunamiTime",   tsunamiTime);
+
+            if (wireframe) {
+                GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_LINE);
+            } else {
+                GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_FILL);
+            }
+
             ocean.render();
             shaderProgram.unbind();
+
+            GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_FILL);
+
+            // Distance from tsunami origin to the center of the city
+            // City center is roughly at x=0, z=40
+            float cityDist = (float)Math.sqrt(
+                Math.pow(0 - tsunamiOriginX, 2) +
+                Math.pow(40 - tsunamiOriginZ, 2)
+            );
+
+            // Has the wave front reached the city yet?
+            float waveFrontAtCity = tsunamiTime * 40.0f; // same waveSpeed as shader
+            float arrivalFactor   = clamp(
+                (waveFrontAtCity - cityDist) / 30.0f, 0.0f, 1.0f);
+
+            waterLevel = tsunamiActive
+                ? finalAmplitude * arrivalFactor
+                : finalAmplitude * 0.1f * (float)Math.sin(time * 0.5f);
+                
+            cityShader.bind();
+            cityShader.setUniformMatrix4f("projection", camera.getProjectionMatrix(width, height));
+            cityShader.setUniformMatrix4f("view",       camera.getViewMatrix());
+            cityShader.setUniformMatrix4f("model",      new org.joml.Matrix4f());
+            cityShader.setUniformVec3("sunDirection",   sunX, sunY, 0.3f);
+            cityShader.setUniformVec3("cameraPos",      camera.getPosition());
+            cityShader.setUniformFloat("waterLevel",    waterLevel);
+            city.render();
+            cityShader.unbind();
 
             GLFW.glfwSwapBuffers(window);
             GLFW.glfwPollEvents();
@@ -178,6 +238,8 @@ public class OceanRenderer {
     private void cleanup() {
         shaderProgram.cleanup();
         ocean.cleanup();
+        cityShader.cleanup();
+        city.cleanup();
         GLFW.glfwDestroyWindow(window);
         GLFW.glfwTerminate();
     }
@@ -188,5 +250,9 @@ public class OceanRenderer {
 
     private float lerp(float a, float b, float t) {
         return a + (b - a) * t;
+    }
+
+    private float clamp(float value, float min, float max) {
+        return Math.max(min, Math.min(max, value));
     }
 }
