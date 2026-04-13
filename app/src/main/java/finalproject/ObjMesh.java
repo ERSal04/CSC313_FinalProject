@@ -57,6 +57,9 @@ public class ObjMesh {
     }
 
     public void render() {
+        // Tell shader whether this mesh has a texture
+        // The shader uses this to switch between textured and flat rendering
+        // We need a way to pass hasTexture — add a render overload that takes the shader
         if (textureId != 0) {
             TextureLoader.bind(textureId, 0);
         }
@@ -66,6 +69,23 @@ public class ObjMesh {
             indexCount, GL11.GL_UNSIGNED_INT, 0);
         GL30.glBindVertexArray(0);
 
+        if (textureId != 0) {
+            TextureLoader.unbind();
+        }
+    }
+
+    // ADD this overload — used by CityManager so the shader knows
+    // whether to sample the texture or use fallback color
+    public void render(ShaderProgram shader) {
+        shader.setUniformInt("hasTexture", textureId != 0 ? 1 : 0);
+        if (textureId != 0) {
+            shader.setUniformInt("diffuseTexture", 0); // texture unit 0
+            TextureLoader.bind(textureId, 0);
+        }
+        GL30.glBindVertexArray(vaoId);
+        GL11.glDrawElements(GL11.GL_TRIANGLES,
+            indexCount, GL11.GL_UNSIGNED_INT, 0);
+        GL30.glBindVertexArray(0);
         if (textureId != 0) {
             TextureLoader.unbind();
         }

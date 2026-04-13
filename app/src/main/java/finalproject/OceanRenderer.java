@@ -5,7 +5,7 @@ import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
 
 import finalproject.Camera;
-import finalproject.CityMesh;
+import finalproject.CityManager;
 import finalproject.OceanMesh;
 import finalproject.ShaderProgram;
 
@@ -34,7 +34,7 @@ public class OceanRenderer {
 
     private boolean wireframe = false;
 
-    private CityMesh city;
+    private CityManager city;
     private ShaderProgram cityShader;
     private float waterLevel = 0.0f;
 
@@ -93,7 +93,7 @@ public class OceanRenderer {
         String fragSrc = ShaderProgram.loadFile("shaders/ocean.frag");
         shaderProgram  = new ShaderProgram(vertSrc, fragSrc);
 
-        city       = new CityMesh();
+        city       = new CityManager();
         String cityVert = ShaderProgram.loadFile("shaders/city.vert");
         String cityFrag = ShaderProgram.loadFile("shaders/city.frag");
         cityShader = new ShaderProgram(cityVert, cityFrag);
@@ -229,7 +229,7 @@ public class OceanRenderer {
             cityShader.setUniformVec3("sunDirection",   sunX, sunY, 0.3f);
             cityShader.setUniformVec3("cameraPos",      camera.getPosition());
             cityShader.setUniformFloat("waterLevel",    waterLevel);
-            city.render();
+            city.render(cityShader);
             cityShader.unbind();
 
             GLFW.glfwSwapBuffers(window);
