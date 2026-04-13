@@ -11,7 +11,7 @@ public class Camera {
 
     private float yaw = -90.0f;
     private float pitch = 0.0f;
-    private float speed = 0.05f;
+    private float speed = 0.5f;
     private float sensitivity = 0.01f;
     private float fov = 45.0f;
     
@@ -19,6 +19,22 @@ public class Camera {
         this.position = startPosition;
         this.front = new Vector3f(0, 0, -1);
         this.up = new Vector3f(0, 1, 0);
+    }
+
+    // second constructor
+    public Camera(Vector3f startPosition, float startYaw) {
+        this.position = startPosition;
+        this.up = new Vector3f(0, 1, 0);
+        this.yaw = startYaw;
+        this.pitch = -20.0f; // look slightly downward
+
+        // Calculate initial front vector from yaw and pitch
+        float x = (float)(Math.cos(Math.toRadians(yaw)) 
+                        * Math.cos(Math.toRadians(pitch)));
+        float y = (float)(Math.sin(Math.toRadians(pitch)));
+        float z = (float)(Math.sin(Math.toRadians(yaw)) 
+                        * Math.cos(Math.toRadians(pitch)));
+        this.front = new Vector3f(x, y, z).normalize();
     }
 
     public Matrix4f getViewMatrix() {
@@ -33,7 +49,7 @@ public class Camera {
             (float) Math.toRadians(fov), 
             (float) width / height, 
             0.1f, 
-            1000.0f
+            5000.0f
         );
     }
 
@@ -72,5 +88,9 @@ public class Camera {
         float z = (float)(Math.sin(Math.toRadians(yaw)) * Math.cos(Math.toRadians(pitch)));
     
         front = new Vector3f(x, y, z).normalize();
+    }
+
+    public Vector3f getPosition() {
+        return position;
     }
 }

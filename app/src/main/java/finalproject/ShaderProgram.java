@@ -3,6 +3,7 @@ package finalproject;
 import java.io.BufferedReader;
 import java.io.InputStream;
 
+import org.joml.Vector3f;
 import org.lwjgl.opengl.GL20;
 
 public class ShaderProgram {
@@ -32,7 +33,7 @@ public class ShaderProgram {
         GL20.glLinkProgram(programId);
 
         if(GL20.glGetProgrami(programId, GL20.GL_LINK_STATUS) == 0) {
-            throw new RuntimeException("Shader link error: " + GL20.glGetShaderInfoLog(programId));
+            throw new RuntimeException("Shader link error: " + GL20.glGetProgramInfoLog(programId));
         }
 
         GL20.glDeleteShader(vertexShader);
@@ -62,6 +63,21 @@ public class ShaderProgram {
     public void setUniformVec2(String name, float x, float y) {
         int location = GL20.glGetUniformLocation(programId, name);
         GL20.glUniform2f(location, x, y);
+    }
+
+    public void setUniformVec3(String name, float x, float y, float z) {
+        int location = GL20.glGetUniformLocation(programId, name);
+        GL20.glUniform3f(location, x, y, z);
+    }
+
+    public void setUniformVec3(String name, Vector3f vec) {
+        int location = GL20.glGetUniformLocation(programId, name);
+        GL20.glUniform3f(location, vec.x, vec.y, vec.z);
+    }
+
+    public void setUniformInt(String name, int value) {
+        int location = GL20.glGetUniformLocation(programId, name);
+        GL20.glUniform1i(location, value);
     }
 
     public void cleanup() {
