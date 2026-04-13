@@ -75,6 +75,11 @@ public class ShaderProgram {
         GL20.glUniform3f(location, vec.x, vec.y, vec.z);
     }
 
+    public void setUniformInt(String name, int value) {
+        int location = GL20.glGetUniformLocation(programId, name);
+        GL20.glUniform1i(location, value);
+    }
+
     public void cleanup() {
         GL20.glDeleteProgram(programId);
     }
