@@ -30,6 +30,7 @@ public class OceanRenderer {
     private float tsunamiTime   = 0.0f;
     private float tsunamiOriginX = -200.0f; // out at sea, west of city
     private float tsunamiOriginZ = -200.0f;
+    private float frequency = 0.15f;
 
     private boolean wireframe = false;
 
@@ -86,7 +87,7 @@ public class OceanRenderer {
 
         // Grid size of the ocean. can make it larger using the graphics computer
         ocean  = new OceanMesh(300, 2.0f);
-        camera = new Camera(new Vector3f(0, 5, 20));
+        camera = new Camera(new Vector3f(0, 25, -80), 90.0f);
 
         String vertSrc = ShaderProgram.loadFile("shaders/ocean.vert");
         String fragSrc = ShaderProgram.loadFile("shaders/ocean.frag");
@@ -121,10 +122,10 @@ public class OceanRenderer {
             timeOfDay += 0.0001f;
             if (timeOfDay > 1.0f) timeOfDay = 0.0f;
 
-            float[] midnight = {0.01f, 0.01f, 0.05f};
+            float[] midnight = {0.03f, 0.03f, 0.12f};
             float[] dawn     = {0.8f,  0.4f,  0.2f };
             float[] noon     = {0.3f,  0.6f,  1.0f };
-            float[] dusk     = {0.6f,  0.2f,  0.1f };
+            float[] dusk     = {0.55f,  0.28f,  0.20f};
 
             float skyR, skyG, skyB;
             if (timeOfDay < 0.25f) {
@@ -180,9 +181,10 @@ public class OceanRenderer {
 
             time += 0.016f;
             shaderProgram.setUniformFloat("time",      time);
-            shaderProgram.setUniformFloat("amplitude", finalAmplitude);
-            shaderProgram.setUniformFloat("frequency", 0.3f);
-            shaderProgram.setUniformFloat("speed",     1.5f);
+            float safeAmplitude = Math.min(finalAmplitude, 0.9f / frequency);
+            shaderProgram.setUniformFloat("amplitude", safeAmplitude);
+            shaderProgram.setUniformFloat("frequency", 0.15f);  // halved — wider waves
+            shaderProgram.setUniformFloat("speed",     0.8f);   // slower — more realistic
             shaderProgram.setUniformVec2("direction",  1.0f, 0.0f);
 
             float sunX = (float)Math.cos(sunAngle);

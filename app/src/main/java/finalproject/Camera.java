@@ -21,6 +21,22 @@ public class Camera {
         this.up = new Vector3f(0, 1, 0);
     }
 
+    // second constructor
+    public Camera(Vector3f startPosition, float startYaw) {
+        this.position = startPosition;
+        this.up = new Vector3f(0, 1, 0);
+        this.yaw = startYaw;
+        this.pitch = -20.0f; // look slightly downward
+
+        // Calculate initial front vector from yaw and pitch
+        float x = (float)(Math.cos(Math.toRadians(yaw)) 
+                        * Math.cos(Math.toRadians(pitch)));
+        float y = (float)(Math.sin(Math.toRadians(pitch)));
+        float z = (float)(Math.sin(Math.toRadians(yaw)) 
+                        * Math.cos(Math.toRadians(pitch)));
+        this.front = new Vector3f(x, y, z).normalize();
+    }
+
     public Matrix4f getViewMatrix() {
         Vector3f target = new Vector3f();
         position.add(front, target);

@@ -12,48 +12,82 @@ uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
-uniform int   tsunamiActive;   // 0 or 1
-uniform vec2  tsunamiOrigin;   // XZ world position of the earthquake
-uniform float tsunamiTime;     // seconds since tsunami was triggered
+uniform int   tsunamiActive;
+uniform vec2  tsunamiOrigin;
+uniform float tsunamiTime;
 
 out vec3 fragNormal;
 out vec3 fragPos;
 
-vec3 gerstner(vec3 pos, vec2 dir, float amp, float freq, float spd, float t) {
+vec3 gerstnerDisplace(vec3 pos, vec2 dir, float amp,
+                      float freq, float spd, float t) {
     float phase = dot(dir, pos.xz) * freq - t * spd;
-    float x = amp * cos(phase) * dir.x;
-    float y = amp * sin(phase);
-    float z = amp * cos(phase) * dir.y;
-    return vec3(x, y, z);
+    return vec3(
+        amp * cos(phase) * dir.x,
+        amp * sin(phase),
+        amp * cos(phase) * dir.y
+    );
+}
+
+vec3 gerstnerNormal(vec3 pos, vec2 dir, float amp,
+                    float freq, float spd, float t) {
+    float phase = dot(dir, pos.xz) * freq - t * spd;
+    float cosP  = cos(phase);
+    return vec3(
+        -dir.x * freq * amp * cosP,
+         0.0,
+        -dir.y * freq * amp * cosP
+    );
 }
 
 void main() {
     vec3 pos = position;
 
-    pos += gerstner(pos, vec2(1.0, 0.0),  amplitude,       frequency,       speed,       time);
-    pos += gerstner(pos, vec2(0.8, 0.6),  amplitude * 0.5, frequency * 1.5, speed * 0.9, time);
-    pos += gerstner(pos, vec2(-0.5, 0.8), amplitude * 0.3, frequency * 2.0, speed * 1.2, time);
+    // Shore mask — waves fade to zero as they approach land at z=15
+    // Ocean is negative Z, land starts at positive Z around 15
+    // smoothstep(15, -30, pos.z):
+    //   at z = -30 or less  → mask = 1.0 (full waves)
+    //   at z =  15 or more  → mask = 0.0 (flat, no waves)
+    float shoreMask = smoothstep(15.0, -30.0, pos.z);
 
-    // Tsunami wave — circular ripple from origin point
+    float safeAmp = amplitude * shoreMask;
+
+    pos += gerstnerDisplace(pos, vec2(1.0,  0.0), safeAmp,
+                            frequency, speed, time);
+    pos += gerstnerDisplace(pos, vec2(0.8,  0.6), safeAmp * 0.5,
+                            frequency * 1.5, speed * 0.9, time);
+    pos += gerstnerDisplace(pos, vec2(-0.5, 0.8), safeAmp * 0.3,
+                            frequency * 2.0, speed * 1.2, time);
+
+    vec3 n = vec3(0.0, 1.0, 0.0);
+    n += gerstnerNormal(position, vec2(1.0,  0.0), safeAmp,
+                        frequency, speed, time);
+    n += gerstnerNormal(position, vec2(0.8,  0.6), safeAmp * 0.5,
+                        frequency * 1.5, speed * 0.9, time);
+    n += gerstnerNormal(position, vec2(-0.5, 0.8), safeAmp * 0.3,
+                        frequency * 2.0, speed * 1.2, time);
+
+    // Tsunami
     if (tsunamiActive == 1) {
-        float dist       = length(position.xz - tsunamiOrigin);
-        float waveSpeed  = 40.0;  // units per second, tsunamis travel fast
-        float waveFront  = tsunamiTime * waveSpeed;
-        float waveWidth  = 30.0;  // how wide the wave wall is
-
-        // The wave is a travelling wall — peak at waveFront, falls off either side
+        float dist          = length(position.xz - tsunamiOrigin);
+        float waveFront     = tsunamiTime * 40.0;
+        float waveWidth     = 30.0;
         float distFromFront = dist - waveFront;
-        float envelope = exp(-distFromFront * distFromFront / (waveWidth * waveWidth));
+        float envelope      = exp(-(distFromFront * distFromFront)
+                                  / (waveWidth * waveWidth));
 
-        // Height scales with distance — real tsunamis grow as water shallows
-        float tsunamiHeight = 8.0 * envelope;
-
+        // Tsunami also uses shore mask so it doesn't go under city
+        float tsunamiHeight = 8.0 * envelope * shoreMask;
         pos.y += tsunamiHeight;
+
+        vec2  toOrigin    = normalize(tsunamiOrigin - position.xz);
+        float tsunamiSlope = -2.0 * distFromFront / (waveWidth * waveWidth)
+                             * 8.0 * envelope * shoreMask;
+        n.x += toOrigin.x * tsunamiSlope;
+        n.z += toOrigin.y * tsunamiSlope;
     }
 
-    // Normal calculation stays the same
-    fragNormal = vec3(0.0, 1.0, 0.0);
+    fragNormal = normalize(n);
     fragPos    = vec3(model * vec4(pos, 1.0));
-
     gl_Position = projection * view * model * vec4(pos, 1.0);
 }
