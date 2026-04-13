@@ -7,6 +7,14 @@ import org.lwjgl.opengl.GL30;
 
 public class CityMesh {
 
+    private int groundVaoId;
+    private int groundVboId;
+    private int groundIndexCount;
+
+    private int beachVaoId;
+    private int beachVboId; 
+    private int beachIndexCount;
+
     // Each building is defined by:
     // x, z position (center), width, depth, height
     private static final float[][] BUILDINGS = {
@@ -45,10 +53,12 @@ public class CityMesh {
     // City sits on a flat ground plane at y = 0
     // positioned so coastline starts at z = 5 (just above water edge)
     private float offsetX = 0;
-    private float offsetZ = 5;
+    private float offsetZ = 20;
 
     public CityMesh() {
         generate();
+        generateGround();
+        generateBeach();
     }
 
     private void generate() {
@@ -142,6 +152,80 @@ public class CityMesh {
         GL30.glBindVertexArray(0);
     }
 
+    private void generateGround() {
+        // Raised to y=0.5 so ocean waves at y=0 don't poke through
+        // City starts at z=20 instead of z=5, giving a clear coastline gap
+        float x0 = -200f, x1 = 200f;
+        float z0 =   15f, z1 = 300f;
+        float y  =  0.3f;  // slightly above wave base level
+
+        float[] ground = {
+            x0, y, z0,  0,1,0,
+            x1, y, z0,  0,1,0,
+            x1, y, z1,  0,1,0,
+            x0, y, z1,  0,1,0,
+        };
+
+        int[] indices = { 0,1,2, 0,2,3 };
+        groundIndexCount = indices.length;
+
+        groundVaoId = GL30.glGenVertexArrays();
+        GL30.glBindVertexArray(groundVaoId);
+
+        groundVboId = GL15.glGenBuffers();
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, groundVboId);
+        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, ground, GL15.GL_STATIC_DRAW);
+
+        GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, 6 * 4, 0);
+        GL20.glEnableVertexAttribArray(0);
+        GL20.glVertexAttribPointer(1, 3, GL11.GL_FLOAT, false, 6 * 4, 3 * 4);
+        GL20.glEnableVertexAttribArray(1);
+
+        int groundEboId = GL15.glGenBuffers();
+        GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, groundEboId);
+        GL15.glBufferData(GL15.GL_ELEMENT_ARRAY_BUFFER, 
+            indices, GL15.GL_STATIC_DRAW);
+
+        GL30.glBindVertexArray(0);
+    }
+
+    private void generateBeach() {
+        // Beach is a sloped quad from z=0 (ocean edge, y=-0.5) 
+        // to z=15 (land start, y=0.3)
+        // This creates a gentle slope so the transition looks natural
+        float x0 = -200f, x1 = 200f;
+
+        float[] beach = {
+            // position           // normal (pointing up-ish, slightly forward)
+            x0, -0.5f,  0f,   0f, 0.98f, -0.2f,
+            x1, -0.5f,  0f,   0f, 0.98f, -0.2f,
+            x1,  0.3f, 15f,   0f, 0.98f, -0.2f,
+            x0,  0.3f, 15f,   0f, 0.98f, -0.2f,
+        };
+
+        int[] indices = { 0,1,2, 0,2,3 };
+        beachIndexCount = indices.length;
+
+        beachVaoId = GL30.glGenVertexArrays();
+        GL30.glBindVertexArray(beachVaoId);
+
+        beachVboId = GL15.glGenBuffers();
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, beachVboId);
+        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, beach, GL15.GL_STATIC_DRAW);
+
+        GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, 6 * 4, 0);
+        GL20.glEnableVertexAttribArray(0);
+        GL20.glVertexAttribPointer(1, 3, GL11.GL_FLOAT, false, 6 * 4, 3 * 4);
+        GL20.glEnableVertexAttribArray(1);
+
+        int beachEboId = GL15.glGenBuffers();
+        GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, beachEboId);
+        GL15.glBufferData(GL15.GL_ELEMENT_ARRAY_BUFFER,
+            indices, GL15.GL_STATIC_DRAW);
+
+        GL30.glBindVertexArray(0);
+    }
+
     // Writes 4 vertices (x,y,z,nx,ny,nz) for one quad face, returns new index
     private int addFace(float[] v, int i,
             float x0, float y0, float z0,
@@ -158,7 +242,17 @@ public class CityMesh {
 
     public void render() {
         GL30.glBindVertexArray(vaoId);
-        GL11.glDrawElements(GL11.GL_TRIANGLES, indexCount, GL11.GL_UNSIGNED_INT, 0);
+        GL11.glDrawElements(GL11.GL_TRIANGLES, indexCount,
+            GL11.GL_UNSIGNED_INT, 0);
+
+        GL30.glBindVertexArray(groundVaoId);
+        GL11.glDrawElements(GL11.GL_TRIANGLES, groundIndexCount,
+            GL11.GL_UNSIGNED_INT, 0);
+
+        GL30.glBindVertexArray(beachVaoId);
+        GL11.glDrawElements(GL11.GL_TRIANGLES, beachIndexCount,
+            GL11.GL_UNSIGNED_INT, 0);
+
         GL30.glBindVertexArray(0);
     }
 
@@ -166,5 +260,9 @@ public class CityMesh {
         GL15.glDeleteBuffers(vboId);
         GL15.glDeleteBuffers(eboId);
         GL30.glDeleteVertexArrays(vaoId);
+        GL15.glDeleteBuffers(groundVboId);
+        GL30.glDeleteVertexArrays(groundVaoId);
+        GL15.glDeleteBuffers(beachVboId);
+        GL30.glDeleteVertexArrays(beachVaoId);
     }
 }
