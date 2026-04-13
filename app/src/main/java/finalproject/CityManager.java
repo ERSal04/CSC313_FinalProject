@@ -59,6 +59,12 @@ public class CityManager {
                                      "textures/wood_planks.png");
         ObjMesh boat      = loadSafe("models/boat_small.obj",
                                      null);
+        ObjMesh road      = loadSafe("models/road_straight.obj",      "textures/asphalt.png");
+        ObjMesh intersect = loadSafe("models/road_intersection.obj",  "textures/asphalt.png");
+        ObjMesh sidewalk  = loadSafe("models/sidewalk.obj",           "textures/concrete.png");
+        ObjMesh light     = loadSafe("models/streetlight.obj",        null);
+        ObjMesh tree      = loadSafe("models/tree.obj",               null);                             
+        
 
         // --- Coastline district (z = 20 to 35) ---
         // Small buildings near the water
@@ -108,6 +114,55 @@ public class CityManager {
         place(medium, translate(-48, 0, 78));
         place(medium, translate( 55, 0, 65));
         place(medium, translate(-55, 0, 65));
+
+        place(road, translate( 0, 0.3f, 30));
+        place(road, translate( 0, 0.3f, 50));
+        place(road, translate( 0, 0.3f, 70));
+        place(road, translate( 0, 0.3f, 90));
+
+        // Cross streets
+        place(road, translateRotate(-20, 0.3f, 45, 90));
+        place(road, translateRotate( 20, 0.3f, 45, 90));
+        place(road, translateRotate(-20, 0.3f, 70, 90));
+        place(road, translateRotate( 20, 0.3f, 70, 90));
+
+        // Intersections
+        place(intersect, translate( 0, 0.3f, 45));
+        place(intersect, translate( 0, 0.3f, 70));
+
+        // Sidewalks along main road
+        place(sidewalk, translate( 6, 0.3f, 30));
+        place(sidewalk, translate(-6, 0.3f, 30));
+        place(sidewalk, translate( 6, 0.3f, 50));
+        place(sidewalk, translate(-6, 0.3f, 50));
+        place(sidewalk, translate( 6, 0.3f, 70));
+        place(sidewalk, translate(-6, 0.3f, 70));
+
+        // Streetlights along the main road
+        place(light, translate(  8, 0.3f, 25));
+        place(light, translate( -8, 0.3f, 25));
+        place(light, translate(  8, 0.3f, 40));
+        place(light, translate( -8, 0.3f, 40));
+        place(light, translate(  8, 0.3f, 55));
+        place(light, translate( -8, 0.3f, 55));
+        place(light, translate(  8, 0.3f, 70));
+        place(light, translate( -8, 0.3f, 70));
+        place(light, translate(  8, 0.3f, 85));
+        place(light, translate( -8, 0.3f, 85));
+
+        // Trees scattered around the city
+        place(tree, translate( 10, 0.3f, 25));
+        place(tree, translate(-10, 0.3f, 25));
+        place(tree, translate( 10, 0.3f, 35));
+        place(tree, translate(-10, 0.3f, 35));
+        place(tree, translate( 55, 0.3f, 45));
+        place(tree, translate(-55, 0.3f, 45));
+        place(tree, translate( 55, 0.3f, 60));
+        place(tree, translate(-55, 0.3f, 60));
+        place(tree, translate( 10, 0.3f, 75));
+        place(tree, translate(-10, 0.3f, 75));
+        place(tree, translate( 45, 0.3f, 90));
+        place(tree, translate(-45, 0.3f, 90));
     }
 
     // Safely loads an OBJ — returns a fallback colored box if file not found
@@ -141,20 +196,23 @@ public class CityManager {
             .rotateY((float) Math.toRadians(rotY));
     }
 
-    // Called from OceanRenderer — passes the per-instance model matrix
-    // to the shader before each draw call
     public void render(ShaderProgram shader) {
         for (Instance inst : instances) {
             shader.setUniformMatrix4f("model", inst.modelMatrix);
-            inst.mesh.render(shader); // passes shader so hasTexture gets set
+            inst.mesh.render(shader);
         }
 
-        // Ground and beach use identity model matrix
+        // Ground uses identity model matrix and has no texture
         shader.setUniformMatrix4f("model", new Matrix4f());
+        shader.setUniformInt("hasTexture", 0);  // ADD THIS LINE
         renderGround();
     }
 
     private void renderGround() {
+        // Ground and beach have no texture — tell shader to use color fallback
+        // This requires access to the shader, so renderGround now takes it as param
+        // See the render() method below for how this is called
+
         GL30.glBindVertexArray(groundVaoId);
         GL11.glDrawElements(GL11.GL_TRIANGLES, groundIndexCount,
             GL11.GL_UNSIGNED_INT, 0);
@@ -171,11 +229,12 @@ public class CityManager {
         float z0 =   15f, z1 = 300f;
         float y  =  0.3f;
 
+        // FORMAT: x, y, z, nx, ny, nz, u, v  (8 floats per vertex)
         float[] ground = {
-            x0, y, z0,  0,1,0,
-            x1, y, z0,  0,1,0,
-            x1, y, z1,  0,1,0,
-            x0, y, z1,  0,1,0,
+            x0, y, z0,  0,1,0,  0,0,
+            x1, y, z0,  0,1,0,  1,0,
+            x1, y, z1,  0,1,0,  1,1,
+            x0, y, z1,  0,1,0,  0,1,
         };
         int[] indices = { 0,1,2, 0,2,3 };
         groundIndexCount = indices.length;
@@ -185,18 +244,19 @@ public class CityManager {
 
         groundVboId = GL15.glGenBuffers();
         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, groundVboId);
-        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, ground,
-            GL15.GL_STATIC_DRAW);
+        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, ground, GL15.GL_STATIC_DRAW);
 
-        GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, 6*4, 0);
+        int stride = 8 * Float.BYTES;
+        GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, stride, 0);
         GL20.glEnableVertexAttribArray(0);
-        GL20.glVertexAttribPointer(1, 3, GL11.GL_FLOAT, false, 6*4, 3*4);
+        GL20.glVertexAttribPointer(1, 3, GL11.GL_FLOAT, false, stride, 3 * Float.BYTES);
         GL20.glEnableVertexAttribArray(1);
+        GL20.glVertexAttribPointer(2, 2, GL11.GL_FLOAT, false, stride, 6 * Float.BYTES);
+        GL20.glEnableVertexAttribArray(2);
 
         int ebo = GL15.glGenBuffers();
         GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, ebo);
-        GL15.glBufferData(GL15.GL_ELEMENT_ARRAY_BUFFER, indices,
-            GL15.GL_STATIC_DRAW);
+        GL15.glBufferData(GL15.GL_ELEMENT_ARRAY_BUFFER, indices, GL15.GL_STATIC_DRAW);
 
         GL30.glBindVertexArray(0);
     }
@@ -204,11 +264,12 @@ public class CityManager {
     private void generateBeach() {
         float x0 = -200f, x1 = 200f;
 
+        // FORMAT: x, y, z, nx, ny, nz, u, v
         float[] beach = {
-            x0, -0.5f,  0f,  0f, 0.98f, -0.2f,
-            x1, -0.5f,  0f,  0f, 0.98f, -0.2f,
-            x1,  0.3f, 15f,  0f, 0.98f, -0.2f,
-            x0,  0.3f, 15f,  0f, 0.98f, -0.2f,
+            x0, -0.5f,  0f,  0f, 0.98f, -0.2f,  0, 0,
+            x1, -0.5f,  0f,  0f, 0.98f, -0.2f,  1, 0,
+            x1,  0.3f, 15f,  0f, 0.98f, -0.2f,  1, 1,
+            x0,  0.3f, 15f,  0f, 0.98f, -0.2f,  0, 1,
         };
         int[] indices = { 0,1,2, 0,2,3 };
         beachIndexCount = indices.length;
@@ -218,20 +279,26 @@ public class CityManager {
 
         beachVboId = GL15.glGenBuffers();
         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, beachVboId);
-        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, beach,
-            GL15.GL_STATIC_DRAW);
+        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, beach, GL15.GL_STATIC_DRAW);
 
-        GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, 6*4, 0);
+        int stride = 8 * Float.BYTES;
+        GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, stride, 0);
         GL20.glEnableVertexAttribArray(0);
-        GL20.glVertexAttribPointer(1, 3, GL11.GL_FLOAT, false, 6*4, 3*4);
+        GL20.glVertexAttribPointer(1, 3, GL11.GL_FLOAT, false, stride, 3 * Float.BYTES);
         GL20.glEnableVertexAttribArray(1);
+        GL20.glVertexAttribPointer(2, 2, GL11.GL_FLOAT, false, stride, 6 * Float.BYTES);
+        GL20.glEnableVertexAttribArray(2);
 
         int ebo = GL15.glGenBuffers();
         GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, ebo);
-        GL15.glBufferData(GL15.GL_ELEMENT_ARRAY_BUFFER, indices,
-            GL15.GL_STATIC_DRAW);
+        GL15.glBufferData(GL15.GL_ELEMENT_ARRAY_BUFFER, indices, GL15.GL_STATIC_DRAW);
 
         GL30.glBindVertexArray(0);
+    }
+
+    // In CityManager, add this scale helper for quick adjustments
+    private Matrix4f translateScale(float x, float y, float z, float s) {
+        return new Matrix4f().translation(x, y, z).scale(s);
     }
 
     public void cleanup() {
