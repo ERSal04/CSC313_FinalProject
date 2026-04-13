@@ -11,7 +11,7 @@ public class Camera {
 
     private float yaw = -90.0f;
     private float pitch = 0.0f;
-    private float speed = 0.05f;
+    private float speed = 0.5f;
     private float sensitivity = 0.01f;
     private float fov = 45.0f;
     
@@ -72,5 +72,9 @@ public class Camera {
         float z = (float)(Math.sin(Math.toRadians(yaw)) * Math.cos(Math.toRadians(pitch)));
     
         front = new Vector3f(x, y, z).normalize();
+    }
+
+    public Vector3f getPosition() {
+        return position;
     }
 }
