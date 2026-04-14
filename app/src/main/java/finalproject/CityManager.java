@@ -34,6 +34,13 @@ public class CityManager {
     private int beachVboId;
     private int beachIndexCount;
 
+    private float boatRenderX   = -70.0f;
+    private float boatRenderY   =   0.0f;
+    private float boatRenderZ   =  -8.0f;
+    private float boatRenderYaw =   0.0f;
+
+    private ObjMesh boatMesh = null;  
+
     public CityManager() {
         loadBuildings();
         generateGround();
@@ -41,128 +48,190 @@ public class CityManager {
     }
 
     private void loadBuildings() {
-
-        // Load each unique mesh once, reuse for multiple placements
-        // If a file doesn't exist yet, pass null for texture and it
-        // will fall back to the flat grey in the shader
-        ObjMesh small     = loadSafe("models/building_small.obj",
-                                     "textures/brick.png");
-        ObjMesh medium    = loadSafe("models/building_medium.obj",
-                                     "textures/concrete.png");
-        ObjMesh tall      = loadSafe("models/building_tall.obj",
-                                     "textures/glass_windows.png");
-        ObjMesh apartment = loadSafe("models/building_apartment.obj",
-                                     "textures/concrete.png");
-        ObjMesh seawall   = loadSafe("models/seawall.obj",
-                                     "textures/concrete.png");
-        ObjMesh dock      = loadSafe("models/dock.obj",
-                                     "textures/wood_planks.png");
-        ObjMesh boat      = loadSafe("models/boat_small.obj",
-                                     null);
+        ObjMesh small     = loadSafe("models/building_small.obj",     "textures/brick.png");
+        ObjMesh medium    = loadSafe("models/building_medium.obj",    "textures/concrete.png");
+        ObjMesh tall      = loadSafe("models/building_tall.obj",      "textures/glass_windows.png");
+        ObjMesh apartment = loadSafe("models/building_apartment.obj", "textures/concrete.png");
+        ObjMesh seawall   = loadSafe("models/seawall.obj",            "textures/concrete.png");
+        ObjMesh dock      = loadSafe("models/dock.obj",               "textures/wood_planks.png");
+        ObjMesh boat      = loadSafe("models/boat_small.obj",         null);
         ObjMesh road      = loadSafe("models/road_straight.obj",      "textures/asphalt.png");
         ObjMesh intersect = loadSafe("models/road_intersection.obj",  "textures/asphalt.png");
         ObjMesh sidewalk  = loadSafe("models/sidewalk.obj",           "textures/concrete.png");
         ObjMesh light     = loadSafe("models/streetlight.obj",        null);
-        ObjMesh tree      = loadSafe("models/tree.obj",               null);                             
-        
+        ObjMesh tree      = loadSafe("models/tree.obj",               null);
 
-        // --- Coastline district (z = 20 to 35) ---
-        // Small buildings near the water
-        place(small,  translate(  0, 0, 22));
-        place(small,  translate( 15, 0, 22));
-        place(small,  translate(-15, 0, 22));
-        place(small,  translate( 30, 0, 22));
-        place(small,  translate(-30, 0, 22));
-        place(small,  translate( 45, 0, 28));
-        place(small,  translate(-45, 0, 28));
+        // -------------------------------------------------------
+        // SEAWALL — seawall is 20 wide, place every 20 units
+        // centered at z=16, 1 unit deep so front face at z=15
+        // -------------------------------------------------------
+        place(seawall, translate(-40, 0.3f, 16));
+        place(seawall, translate(-20, 0.3f, 16));
+        place(seawall, translate(  0, 0.3f, 16));
+        place(seawall, translate( 20, 0.3f, 16));
+        place(seawall, translate( 40, 0.3f, 16));
 
-        // Seawall runs along the coast at z = 16
-        place(seawall, translate(-60, 0, 16));
-        place(seawall, translate(-30, 0, 16));
-        place(seawall, translate(  0, 0, 16));
-        place(seawall, translate( 30, 0, 16));
-        place(seawall, translate( 60, 0, 16));
+        // -------------------------------------------------------
+        // DOCK + BOAT — dock is 15 wide x 20 deep
+        // place it extending into the water from the beach
+        // at x=-70 it is well clear of the seawall which ends at x=-50
+        // -------------------------------------------------------
+        place(dock, translate(-70, 0.0f, -8));
+        // place(boat, translate(-70, 0.1f, -14));
+        boatMesh = boat;
 
-        // Dock extends into the water on the left side
-        place(dock,  translate(-50, 0, 10));
-        // Boat sits at the end of the dock
-        place(boat,  translate(-50, 0,  5));
+        // -------------------------------------------------------
+        // ROAD LAYOUT
+        // road_straight is 10 wide x 20 deep
+        // Main road runs north-south along x=0
+        // Road occupies x=-5 to x=+5
+        //
+        // Cross roads run east-west at z=48 and z=70
+        // When rotated 90deg, road becomes 20 wide x 10 deep
+        // so cross road at z=48 occupies z=43 to z=53
+        // and cross road at z=70 occupies z=65 to z=75
+        //
+        // road_intersection is 20x20, placed at each crossing
+        // -------------------------------------------------------
 
-        // --- Mid district (z = 35 to 55) ---
-        place(medium, translate(  0, 0, 40));
-        place(medium, translate( 22, 0, 40));
-        place(medium, translate(-22, 0, 40));
-        place(medium, translate( 44, 0, 38));
-        place(medium, translate(-44, 0, 38));
-        place(medium, translate( 12, 0, 52));
-        place(medium, translate(-12, 0, 52));
+        // Main road north-south — covers z=18 to z=98 with segments
+        place(road, translate(0, 0.31f, 27)); // z=17 to z=37
+        place(road, translate(0, 0.31f, 47)); // z=37 to z=57 — but intersection at z=48 covers this
+        place(road, translate(0, 0.31f, 67)); // z=57 to z=77 — intersection at z=70 covers this
+        place(road, translate(0, 0.31f, 87)); // z=77 to z=97
 
-        place(apartment, translate( 34, 0, 48));
-        place(apartment, translate(-34, 0, 48));
+        // Intersections — 20x20, placed at z=48 and z=70
+        place(intersect, translate(0, 0.31f, 48));
+        place(intersect, translate(0, 0.31f, 70));
 
-        // --- Downtown (z = 60 to 100) ---
-        place(tall, translate(  0, 0, 65));
-        place(tall, translate( 22, 0, 65));
-        place(tall, translate(-22, 0, 65));
-        place(tall, translate( 38, 0, 70));
-        place(tall, translate(-38, 0, 70));
-        place(tall, translate(  0, 0, 85));
-        place(tall, translate( 28, 0, 82));
-        place(tall, translate(-28, 0, 82));
+        // Cross roads east-west at z=48
+        // rotated 90deg: now 20 wide (Z) x 10 deep (X)
+        // need to fill from x=-10 to x=-80 and x=+10 to x=+80
+        place(road, translateRotate(-20, 0.31f, 48, 90)); // x=-30 to x=-10
+        place(road, translateRotate(-40, 0.31f, 48, 90)); // x=-50 to x=-30
+        place(road, translateRotate(-60, 0.31f, 48, 90)); // x=-70 to x=-50
+        place(road, translateRotate( 20, 0.31f, 48, 90)); // x=+10 to x=+30
+        place(road, translateRotate( 40, 0.31f, 48, 90)); // x=+30 to x=+50
+        place(road, translateRotate( 60, 0.31f, 48, 90)); // x=+50 to x=+70
 
-        place(medium, translate( 48, 0, 78));
-        place(medium, translate(-48, 0, 78));
-        place(medium, translate( 55, 0, 65));
-        place(medium, translate(-55, 0, 65));
+        // Cross roads at z=70
+        place(road, translateRotate(-20, 0.31f, 70, 90));
+        place(road, translateRotate(-40, 0.31f, 70, 90));
+        place(road, translateRotate(-60, 0.31f, 70, 90));
+        place(road, translateRotate( 20, 0.31f, 70, 90));
+        place(road, translateRotate( 40, 0.31f, 70, 90));
+        place(road, translateRotate( 60, 0.31f, 70, 90));
 
-        place(road, translate( 0, 0.3f, 30));
-        place(road, translate( 0, 0.3f, 50));
-        place(road, translate( 0, 0.3f, 70));
-        place(road, translate( 0, 0.3f, 90));
+        // -------------------------------------------------------
+        // SIDEWALKS — sidewalk tile is 5x5
+        // Place continuously along both sides of main road
+        // Road edge is at x=±5, sidewalk starts at x=±5
+        // So right sidewalk centers at x=7.5, left at x=-7.5
+        // Tiles placed every 5 units in Z to form continuous path
+        // -------------------------------------------------------
+        float[] swZ = {20,25,30,35,40,45,53,58,63,75,80,85,90,95};
+        for (float z : swZ) {
+            place(sidewalk, translate( 7.5f, 0.32f, z));
+            place(sidewalk, translate(-7.5f, 0.32f, z));
+        }
 
-        // Cross streets
-        place(road, translateRotate(-20, 0.3f, 45, 90));
-        place(road, translateRotate( 20, 0.3f, 45, 90));
-        place(road, translateRotate(-20, 0.3f, 70, 90));
-        place(road, translateRotate( 20, 0.3f, 70, 90));
+        // -------------------------------------------------------
+        // STREETLIGHTS — streetlight base is 0.6x0.6
+        // Place at x=±13 — outside sidewalk edge at x=±10,
+        // inside building_small edge at x=±14 (half of 8 = 4,
+        // building center at x=18 so inner edge at x=14)
+        // Place every 20 units so they don't crowd
+        // -------------------------------------------------------
+        float[] lightZ = {22, 42, 62, 82};
+        for (float z : lightZ) {
+            place(light, translate( 13, 0.32f, z));
+            place(light, translate(-13, 0.32f, z));
+        }
 
-        // Intersections
-        place(intersect, translate( 0, 0.3f, 45));
-        place(intersect, translate( 0, 0.3f, 70));
+        // -------------------------------------------------------
+        // COASTLINE DISTRICT — z=19 to z=43
+        // building_small footprint: 8 wide x 8 deep
+        // Half = 4 units each side
+        // Road occupies x=-5 to +5
+        // Sidewalk at x=5 to 10 and x=-5 to -10
+        // First safe building center: x=±14 (edge at x=10, +4 half = 14)
+        // -------------------------------------------------------
+        place(small, translate( 14, 0.3f, 22)); // right edge x=18, clear of sidewalk at x=10
+        place(small, translate(-14, 0.3f, 22));
+        place(small, translate( 24, 0.3f, 22)); // next column
+        place(small, translate(-24, 0.3f, 22));
+        place(small, translate( 36, 0.3f, 22));
+        place(small, translate(-36, 0.3f, 22));
+        place(small, translate( 14, 0.3f, 32));
+        place(small, translate(-14, 0.3f, 32));
+        place(small, translate( 24, 0.3f, 32));
+        place(small, translate(-24, 0.3f, 32));
+        place(small, translate( 36, 0.3f, 32));
+        place(small, translate(-36, 0.3f, 32));
 
-        // Sidewalks along main road
-        place(sidewalk, translate( 6, 0.3f, 30));
-        place(sidewalk, translate(-6, 0.3f, 30));
-        place(sidewalk, translate( 6, 0.3f, 50));
-        place(sidewalk, translate(-6, 0.3f, 50));
-        place(sidewalk, translate( 6, 0.3f, 70));
-        place(sidewalk, translate(-6, 0.3f, 70));
+        // -------------------------------------------------------
+        // MID DISTRICT — z=53 to z=65 (between cross roads)
+        // building_medium footprint: 10 wide x 10 deep, half=5
+        // First safe center: x=±15 (sidewalk ends at 10, +5 half = 15)
+        // -------------------------------------------------------
+        place(medium, translate( 15, 0.3f, 40));
+        place(medium, translate(-15, 0.3f, 40));
+        place(medium, translate( 27, 0.3f, 40));
+        place(medium, translate(-27, 0.3f, 40));
+        place(medium, translate( 41, 0.3f, 40));
+        place(medium, translate(-41, 0.3f, 40));
 
-        // Streetlights along the main road
-        place(light, translate(  8, 0.3f, 25));
-        place(light, translate( -8, 0.3f, 25));
-        place(light, translate(  8, 0.3f, 40));
-        place(light, translate( -8, 0.3f, 40));
-        place(light, translate(  8, 0.3f, 55));
-        place(light, translate( -8, 0.3f, 55));
-        place(light, translate(  8, 0.3f, 70));
-        place(light, translate( -8, 0.3f, 70));
-        place(light, translate(  8, 0.3f, 85));
-        place(light, translate( -8, 0.3f, 85));
+        // Between cross roads z=53 to z=65
+        place(apartment, translate( 15, 0.3f, 59));
+        place(apartment, translate(-15, 0.3f, 59));
+        place(medium,    translate( 29, 0.3f, 59));
+        place(medium,    translate(-29, 0.3f, 59));
+        place(medium,    translate( 43, 0.3f, 59));
+        place(medium,    translate(-43, 0.3f, 59));
 
-        // Trees scattered around the city
-        place(tree, translate( 10, 0.3f, 25));
-        place(tree, translate(-10, 0.3f, 25));
-        place(tree, translate( 10, 0.3f, 35));
-        place(tree, translate(-10, 0.3f, 35));
-        place(tree, translate( 55, 0.3f, 45));
-        place(tree, translate(-55, 0.3f, 45));
-        place(tree, translate( 55, 0.3f, 60));
-        place(tree, translate(-55, 0.3f, 60));
-        place(tree, translate( 10, 0.3f, 75));
-        place(tree, translate(-10, 0.3f, 75));
-        place(tree, translate( 45, 0.3f, 90));
-        place(tree, translate(-45, 0.3f, 90));
+        // -------------------------------------------------------
+        // DOWNTOWN — z=75 onwards
+        // building_tall footprint: 13 wide x 13 deep, half=6.5
+        // First safe center: x=±16.5 — round to x=±17
+        // -------------------------------------------------------
+        place(tall, translate( 17, 0.3f, 80));
+        place(tall, translate(-17, 0.3f, 80));
+        place(tall, translate( 32, 0.3f, 80));
+        place(tall, translate(-32, 0.3f, 80));
+        place(tall, translate( 48, 0.3f, 80));
+        place(tall, translate(-48, 0.3f, 80));
+
+        place(tall, translate( 17, 0.3f, 95));
+        place(tall, translate(-17, 0.3f, 95));
+        place(tall, translate( 32, 0.3f, 95));
+        place(tall, translate(-32, 0.3f, 95));
+
+        place(medium, translate( 50, 0.3f, 95));
+        place(medium, translate(-50, 0.3f, 95));
+
+        // -------------------------------------------------------
+        // TREES — in gaps between buildings, clear of roads
+        // tree footprint: 5x5 so half=2.5
+        // Place in the open areas that have no buildings
+        // -------------------------------------------------------
+
+        // Along coastline between building columns
+        place(tree, translate( 48, 0.3f, 27));
+        place(tree, translate(-48, 0.3f, 27));
+        place(tree, translate( 48, 0.3f, 37));
+        place(tree, translate(-48, 0.3f, 37));
+
+        // Mid district open corners near cross roads
+        place(tree, translate( 55, 0.3f, 43));
+        place(tree, translate(-55, 0.3f, 43));
+        place(tree, translate( 55, 0.3f, 59));
+        place(tree, translate(-55, 0.3f, 59));
+
+        // Downtown side areas
+        place(tree, translate( 55, 0.3f, 80));
+        place(tree, translate(-55, 0.3f, 80));
+        place(tree, translate( 55, 0.3f, 95));
+        place(tree, translate(-55, 0.3f, 95));
     }
 
     // Safely loads an OBJ — returns a fallback colored box if file not found
@@ -197,14 +266,27 @@ public class CityManager {
     }
 
     public void render(ShaderProgram shader) {
+        shader.setUniformInt("isGround", 0);
+
         for (Instance inst : instances) {
             shader.setUniformMatrix4f("model", inst.modelMatrix);
             inst.mesh.render(shader);
         }
 
-        // Ground uses identity model matrix and has no texture
+        // Boat rendered separately with live transform
+        if (boatMesh != null) {
+            Matrix4f boatModel = new Matrix4f()
+                .translate(boatRenderX, boatRenderY, boatRenderZ)
+                .rotateY((float)Math.toRadians(boatRenderYaw));
+            shader.setUniformMatrix4f("model", boatModel);
+            shader.setUniformInt("isGround", 0);
+            boatMesh.render(shader);
+        }
+
+        // Ground and beach
         shader.setUniformMatrix4f("model", new Matrix4f());
-        shader.setUniformInt("hasTexture", 0);  // ADD THIS LINE
+        shader.setUniformInt("hasTexture", 0);
+        shader.setUniformInt("isGround", 1);
         renderGround();
     }
 
@@ -296,20 +378,28 @@ public class CityManager {
         GL30.glBindVertexArray(0);
     }
 
-    // In CityManager, add this scale helper for quick adjustments
     private Matrix4f translateScale(float x, float y, float z, float s) {
         return new Matrix4f().translation(x, y, z).scale(s);
     }
 
+    public void setBoatTransform(float x, float y, float z, float yaw) {
+        boatRenderX   = x;
+        boatRenderY   = y;
+        boatRenderZ   = z;
+        boatRenderYaw = yaw;
+    }
+
     public void cleanup() {
-        // Deduplicate — same ObjMesh may be placed multiple times
-        // so track which ones we've already cleaned up
         List<ObjMesh> cleaned = new ArrayList<>();
         for (Instance inst : instances) {
             if (!cleaned.contains(inst.mesh)) {
                 inst.mesh.cleanup();
                 cleaned.add(inst.mesh);
             }
+        }
+        // Clean up boat separately since it's not in instances
+        if (boatMesh != null && !cleaned.contains(boatMesh)) {
+            boatMesh.cleanup();
         }
         GL15.glDeleteBuffers(groundVboId);
         GL30.glDeleteVertexArrays(groundVaoId);

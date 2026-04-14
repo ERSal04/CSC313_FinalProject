@@ -93,4 +93,24 @@ public class Camera {
     public Vector3f getPosition() {
         return position;
     }
+
+    public void setCinematicAngles(float targetYaw, float targetPitch,
+                                    float smoothSpeed) {
+        // Smooth interpolation toward target yaw and pitch
+        yaw   = lerp(yaw,   targetYaw,   smoothSpeed);
+        pitch = lerp(pitch, targetPitch, smoothSpeed);
+
+        // Recalculate front vector
+        float x = (float)(Math.cos(Math.toRadians(yaw))
+                        * Math.cos(Math.toRadians(pitch)));
+        float y = (float)(Math.sin(Math.toRadians(pitch)));
+        float z = (float)(Math.sin(Math.toRadians(yaw))
+                        * Math.cos(Math.toRadians(pitch)));
+        front = new Vector3f(x, y, z).normalize();
+    }
+
+    // Also add this lerp helper to Camera since it needs it internally
+    private float lerp(float a, float b, float t) {
+        return a + (b - a) * t;
+    }
 }

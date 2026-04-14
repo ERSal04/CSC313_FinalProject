@@ -51,7 +51,7 @@ public class OceanMesh {
                 float worldZ = (z - gridSize / 2) * tileSize;
 
                 // Skip quads that are entirely on land side
-                if (worldZ >= SHORE_Z) continue;
+                // if (worldZ >= SHORE_Z) continue;
 
                 indexList.add(topLeft);
                 indexList.add(bottomLeft);
