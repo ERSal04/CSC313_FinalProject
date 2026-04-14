@@ -262,7 +262,7 @@ public class OceanRenderer {
             shaderProgram.setUniformInt  ("tsunamiActive", tsunamiActive ? 1 : 0);
             shaderProgram.setUniformVec2 ("tsunamiOrigin", tsunamiOriginX, tsunamiOriginZ);
             shaderProgram.setUniformFloat("tsunamiTime",   tsunamiTime);
-
+            
             if (wireframe) {
                 GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_LINE);
             } else {
