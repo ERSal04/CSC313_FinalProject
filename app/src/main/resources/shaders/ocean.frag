@@ -165,5 +165,9 @@ void main() {
     fogT       = fogT * fogT;
     color      = mix(color, skyColor, fogT);
 
-    fragColor = vec4(color, 1.0);
+    float viewDot    = abs(dot(norm, viewDir));
+    float baseAlpha  = 0.82f;                          // base transparency
+    float fresnelAlpha = mix(0.55, baseAlpha, viewDot); // edges more transparent
+    float finalAlpha = mix(fresnelAlpha, 1.0, foamAmount); // foam stays opaque
+    fragColor = vec4(color, finalAlpha);
 }

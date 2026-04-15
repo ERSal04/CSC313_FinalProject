@@ -32,22 +32,23 @@ public class OceanRenderer {
 
     private boolean tsunamiActive = false;
     private float tsunamiStrength = 0.0f;
-    private float tsunamiTime   = 0.0f;
-    private float tsunamiOriginX =    0.0f;  // centered on city
-    private float tsunamiOriginZ = -250.0f;  // directly out to sea
+    private float tsunamiTime     = 0.0f;
+    private float tsunamiOriginX  =    0.0f;
+    private float tsunamiOriginZ  = -250.0f;
     private float frequency = 0.15f;
 
-    private float boatX     =  -70.0f;  // matches dock position in CityManager
-    private float boatZ     =   -15.0f;
-    private float boatYaw   =    90.0f;  // rotation when swept by tsunami
-    private float boatSweepZ=    0.0f;  // how far tsunami has pushed the boat
+    private float boatX      =  -70.0f;
+    private float boatZ      =  -15.0f;
+    private float boatYaw    =   90.0f;
+    private float boatSweepZ =    0.0f;
 
     private boolean wireframe = false;
+    private boolean underwater = false;
 
     private CityManager city;
     private ShaderProgram cityShader;
-    private float waterLevel = 0.0f;
-    private float speed = 0.8f;
+    private float waterLevel    = 0.0f;
+    private float speed         = 0.8f;
     private float arrivalFactor = 0.0f;
 
     private RainSystem rain;
@@ -90,7 +91,6 @@ public class OceanRenderer {
             if (key == GLFW.GLFW_KEY_L && action == GLFW.GLFW_PRESS)
                 timeOfDay = 0.35f;
 
-            // R resets the entire simulation to starting state
             if (key == GLFW.GLFW_KEY_R && action == GLFW.GLFW_PRESS) {
                 tsunamiActive   = false;
                 tsunamiStrength = 0.0f;
@@ -98,11 +98,11 @@ public class OceanRenderer {
                 waterLevel      = 0.0f;
                 cinematicMode   = false;
                 cinematicTime   = 0.0f;
-                boatSweepZ = 0.0f; boatYaw = 0.0f;
+                boatSweepZ      = 0.0f;
+                boatYaw         = 0.0f;
                 System.out.println("Simulation reset");
             }
 
-            // C toggles cinematic camera mode
             if (key == GLFW.GLFW_KEY_C && action == GLFW.GLFW_PRESS) {
                 cinematicMode = !cinematicMode;
                 cinematicTime = 0.0f;
@@ -122,10 +122,8 @@ public class OceanRenderer {
 
         GL.createCapabilities();
 
-        GL11.glClearColor(0.0f, 0.1f, 0.2f, 1.0f);
         GL11.glEnable(GL11.GL_DEPTH_TEST);
 
-        // Grid size of the ocean. can make it larger using the graphics computer
         ocean  = new OceanMesh(300, 2.0f);
         camera = new Camera(new Vector3f(0, 25, -80), 90.0f);
 
@@ -133,13 +131,12 @@ public class OceanRenderer {
         String fragSrc = ShaderProgram.loadFile("shaders/ocean.frag");
         shaderProgram  = new ShaderProgram(vertSrc, fragSrc);
 
-        city       = new CityManager();
+        city = new CityManager();
         String cityVert = ShaderProgram.loadFile("shaders/city.vert");
         String cityFrag = ShaderProgram.loadFile("shaders/city.frag");
         cityShader = new ShaderProgram(cityVert, cityFrag);
 
-        rain = new RainSystem();
-
+        rain  = new RainSystem();
         sound = new SoundManager();
 
         GLFW.glfwSetCursorPosCallback(window, (win, xpos, ypos) -> {
@@ -166,14 +163,14 @@ public class OceanRenderer {
                 camera.processKeyboard(window);
             }
 
-            // --- Sky color driven by time of day ---
+            // --- Time of day ---
             timeOfDay += 0.0001f;
             if (timeOfDay > 1.0f) timeOfDay = 0.0f;
 
             float[] midnight = {0.03f, 0.03f, 0.12f};
             float[] dawn     = {0.8f,  0.4f,  0.2f };
             float[] noon     = {0.3f,  0.6f,  1.0f };
-            float[] dusk     = {0.55f,  0.28f,  0.20f};
+            float[] dusk     = {0.55f, 0.28f, 0.20f};
 
             float skyR, skyG, skyB;
             if (timeOfDay < 0.25f) {
@@ -197,17 +194,13 @@ public class OceanRenderer {
                 skyG = lerp(dusk[1], midnight[1], t);
                 skyB = lerp(dusk[2], midnight[2], t);
             }
-            GL11.glClearColor(skyR, skyG, skyB, 1.0f);
-            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
 
-            // Tsunami ramp 
+            // --- Tsunami ---
             if (tsunamiActive) {
                 tsunamiStrength = Math.min(tsunamiStrength + 0.02f, 1.0f);
-                // Slow wave speed in cinematic mode — gives shots time to play out
                 float timeScale = cinematicMode ? 0.3f : 1.0f;
                 tsunamiTime += 0.016f * timeScale;
             } else {
-                // Let tsunamiTime drain slowly so flood recedes naturally
                 if (tsunamiTime > 0) {
                     tsunamiTime     = Math.max(0.0f, tsunamiTime     - 0.005f);
                     tsunamiStrength = Math.max(0.0f, tsunamiStrength - 0.005f);
@@ -215,156 +208,156 @@ public class OceanRenderer {
                 }
             }
 
-            float sunAngle  = timeOfDay * 2.0f * (float)Math.PI;
-            float moonAngle = sunAngle + (float)Math.PI;
-            float moonY     = (float)Math.sin(moonAngle);
+            float sunAngle = timeOfDay * 2.0f * (float)Math.PI;
+            float moonY    = (float)Math.sin(sunAngle + Math.PI);
+            float sunX     = (float)Math.cos(sunAngle);
+            float sunY     = (float)Math.sin(sunAngle);
+            float moonX    = (float)Math.cos(sunAngle + Math.PI);
+            float moonY2   = (float)Math.sin(sunAngle + Math.PI);
 
-            float sunX = (float)Math.cos(sunAngle);
-            float sunY = (float)Math.sin(sunAngle);
+            float stormDark = rainIntensity * 0.35f;
+            float fogStart  = 100.0f - rainIntensity * 50.0f;
+            float fogEnd    = 400.0f - rainIntensity * 180.0f;
 
-            float duskFactor = 1.0f - Math.min(1.0f, Math.abs(sunY) * 2.0f);
-            float stormDark  = rainIntensity * 0.35f;
-            float fogStart   = 100.0f - rainIntensity * 50.0f;  // fog closes in
-            float fogEnd     = 400.0f - rainIntensity * 180.0f; // horizon disappears
+            float stormSkyR = lerp(skyR, 0.15f, rainIntensity * 0.6f) * (1.0f - stormDark * 0.3f);
+            float stormSkyG = lerp(skyG, 0.18f, rainIntensity * 0.6f) * (1.0f - stormDark * 0.3f);
+            float stormSkyB = lerp(skyB, 0.25f, rainIntensity * 0.6f) * (1.0f - stormDark * 0.1f);
 
-            // Darken sky during storm
-            float stormSkyR  = lerp(skyR, 0.15f, rainIntensity * 0.6f) * (1.0f - stormDark * 0.3f);
-            float stormSkyG  = lerp(skyG, 0.18f, rainIntensity * 0.6f) * (1.0f - stormDark * 0.3f);
-            float stormSkyB  = lerp(skyB, 0.25f, rainIntensity * 0.6f) * (1.0f - stormDark * 0.1f);
-
-            GL11.glClearColor(stormSkyR, stormSkyG, stormSkyB, 1.0f);
-
-            // Spring/neap cycle — stronger tides when sun and moon align
-            float sunMoonAlignment = (float)Math.cos(sunAngle - moonAngle);
+            float sunMoonAlignment = (float)Math.cos(sunAngle - (sunAngle + Math.PI));
             float tidalStrength    = 0.7f + 0.3f * sunMoonAlignment;
+            float tidalAmplitude   = (0.8f + 0.6f * Math.max(moonY, 0.0f)) * tidalStrength;
+            float tidalWaterLevel  = 0.5f * Math.max(moonY, 0.0f) * tidalStrength;
+            float finalAmplitude   = tsunamiActive ? tidalAmplitude * 0.3f : tidalAmplitude;
 
-            // Wave height varies with moon position
-            float tidalAmplitude = (0.8f + 0.6f * Math.max(moonY, 0.0f))
-                                * tidalStrength;
+            // --- Underwater detection ---
+            float surfaceAtCamera = sampleWaveHeight(
+                camera.getPosition().x,
+                camera.getPosition().z,
+                time) + tidalWaterLevel;
+            underwater = camera.getPosition().y < surfaceAtCamera;
 
-            // Tidal water level — slow rise and fall of the whole surface
-            float tidalWaterLevel = 0.5f * Math.max(moonY, 0.0f) * tidalStrength;
+            // Sky and fog change when underwater
+            float skyRFinal, skyGFinal, skyBFinal;
+            float fogStartFinal, fogEndFinal;
 
-            float finalAmplitude = tsunamiActive
-                ? tidalAmplitude * 0.3f
-                : tidalAmplitude;
+            if (underwater) {
+                float depth       = Math.max(0, surfaceAtCamera - camera.getPosition().y);
+                float depthFactor = clamp(depth / 20.0f, 0.0f, 1.0f);
 
-            // Shader uniforms 
+                skyRFinal = lerp(0.02f, 0.0f,  depthFactor);
+                skyGFinal = lerp(0.25f, 0.08f, depthFactor);
+                skyBFinal = lerp(0.35f, 0.18f, depthFactor);
+
+                fogStartFinal = 0.0f;
+                fogEndFinal   = lerp(25.0f, 8.0f, depthFactor);
+            } else {
+                skyRFinal     = stormSkyR;
+                skyGFinal     = stormSkyG;
+                skyBFinal     = stormSkyB;
+                fogStartFinal = fogStart;
+                fogEndFinal   = fogEnd;
+            }
+
+            GL11.glClearColor(skyRFinal, skyGFinal, skyBFinal, 1.0f);
+            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+
+            // --- Ocean shader ---
             shaderProgram.bind();
-
             shaderProgram.setUniformMatrix4f("projection", camera.getProjectionMatrix(width, height));
             shaderProgram.setUniformMatrix4f("view",       camera.getViewMatrix());
             shaderProgram.setUniformMatrix4f("model",      new org.joml.Matrix4f());
-
-            // sends camera world position for specular lighting
-            shaderProgram.setUniformVec3("cameraPos", camera.getPosition());
+            shaderProgram.setUniformVec3("cameraPos",      camera.getPosition());
 
             time += 0.016f;
-            shaderProgram.setUniformFloat("time",      time);
+            shaderProgram.setUniformFloat("time",        time);
             float safeAmplitude = Math.min(finalAmplitude, 0.9f / frequency);
-            shaderProgram.setUniformFloat("amplitude", safeAmplitude);
-            shaderProgram.setUniformFloat("frequency", 0.15f);  // halved — wider waves
-            shaderProgram.setUniformFloat("speed",     0.8f);   // slower — more realistic
-            shaderProgram.setUniformVec2("direction",  1.0f, 0.0f);
+            shaderProgram.setUniformFloat("amplitude",   safeAmplitude);
+            shaderProgram.setUniformFloat("frequency",   0.15f);
+            shaderProgram.setUniformFloat("speed",       0.8f);
+            shaderProgram.setUniformVec2("direction",    1.0f, 0.0f);
             shaderProgram.setUniformFloat("tidalOffset", tidalWaterLevel);
-
-            shaderProgram.setUniformVec3("skyColor", stormSkyR, stormSkyG, stormSkyB);
-            shaderProgram.setUniformFloat("fogStart", fogStart);
-            shaderProgram.setUniformFloat("fogEnd",   fogEnd);
-
+            shaderProgram.setUniformVec3("skyColor",     skyRFinal, skyGFinal, skyBFinal);
+            shaderProgram.setUniformFloat("fogStart",    fogStartFinal);
+            shaderProgram.setUniformFloat("fogEnd",      fogEndFinal);
             shaderProgram.setUniformVec3("sunDirection", sunX, sunY, 0.3f);
-
-            shaderProgram.setUniformFloat("timeOfDay", timeOfDay);
-
-            // Moon direction — opposite side of sky from sun
-            float moonX = (float)Math.cos(sunAngle + Math.PI);
-            float moonY2 = (float)Math.sin(sunAngle + Math.PI);
+            shaderProgram.setUniformFloat("timeOfDay",   timeOfDay);
             shaderProgram.setUniformVec3("moonDirection", moonX, moonY2, 0.3f);
-
             shaderProgram.setUniformInt  ("tsunamiActive", tsunamiActive ? 1 : 0);
             shaderProgram.setUniformVec2 ("tsunamiOrigin", tsunamiOriginX, tsunamiOriginZ);
             shaderProgram.setUniformFloat("tsunamiTime",   tsunamiTime);
-            
-            if (wireframe) {
+
+            if (wireframe)
                 GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_LINE);
-            } else {
+            else
                 GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_FILL);
-            }
+
+            GL11.glEnable(GL11.GL_BLEND);
+            GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
 
             ocean.render();
             shaderProgram.unbind();
-
             GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_FILL);
 
-            // Distance from tsunami origin to the center of the city
-            // City center is roughly at x=0, z=40
-            float cityDist = (float)Math.sqrt(
-                Math.pow(0   - tsunamiOriginX, 2) +
-                Math.pow(60  - tsunamiOriginZ, 2)
-            );
+            GL11.glDisable(GL11.GL_BLEND);
 
-            // Has the wave front reached the city yet?
+            // --- Flood calculation ---
+            float cityDist = (float)Math.sqrt(
+                Math.pow(0  - tsunamiOriginX, 2) +
+                Math.pow(60 - tsunamiOriginZ, 2));
+
             float waveFrontAtCity = tsunamiTime * 40.0f;
-            arrivalFactor   = clamp(
-                (waveFrontAtCity - cityDist) / 30.0f, 0.0f, 1.0f);
+            arrivalFactor = clamp((waveFrontAtCity - cityDist) / 30.0f, 0.0f, 1.0f);
 
             float peakFloodHeight = 18.0f;
-            float floodDecay = Math.max(0.0f, tsunamiTime - 15.0f) * 0.3f;
+            float floodDecay      = Math.max(0.0f, tsunamiTime - 15.0f) * 0.3f;
             waterLevel = tsunamiActive
-                ? peakFloodHeight * arrivalFactor * Math.max(0.3f,
-                    1.0f - floodDecay * 0.05f)
+                ? peakFloodHeight * arrivalFactor * Math.max(0.3f, 1.0f - floodDecay * 0.05f)
                 : tidalAmplitude * 0.1f * (float)Math.sin(time * 0.5f);
 
-            
-            // --- Boat simulation ---
+            // --- Boat ---
             float boatWaveY = sampleWaveHeight(boatX, boatZ + boatSweepZ, time) + tidalWaterLevel;
 
             if (tsunamiActive) {
-                // Wave front distance from boat
-                float bdx = boatX - tsunamiOriginX;
-                float bdz = (boatZ + boatSweepZ) - tsunamiOriginZ;
-                float boatDist    = (float)Math.sqrt(bdx*bdx + bdz*bdz);
-                float waveFrontB  = tsunamiTime * 40.0f;
+                float bdx            = boatX - tsunamiOriginX;
+                float bdz            = (boatZ + boatSweepZ) - tsunamiOriginZ;
+                float boatDist       = (float)Math.sqrt(bdx*bdx + bdz*bdz);
+                float waveFrontB     = tsunamiTime * 40.0f;
                 float distFromFrontB = boatDist - waveFrontB;
 
-                // When wave reaches boat, sweep it inland
                 if (distFromFrontB < 20.0f && boatWaveY > 2.0f) {
-                    boatSweepZ += 0.4f;   // carried forward by surge
-                    boatYaw    += 1.2f;   // spinning as it tumbles
+                    boatSweepZ  = Math.min(boatSweepZ + 0.6f, 75.0f);
+                    boatYaw    += 2.0f;
                 }
             }
 
-            // --- Storm intensity ---
-            // Rain ramps up when tsunami is active, fades out when off
+            // --- Rain ---
             float targetRain = tsunamiActive ? 1.0f : 0.0f;
             rainIntensity = lerp(rainIntensity, targetRain, 0.008f);
 
-            // Update and render rain
-            rain.update(0.016f, rainIntensity);
-            rain.render(camera, width, height, rainIntensity);
+            if (!underwater) {
+                rain.update(0.016f, rainIntensity);
+                rain.render(camera, width, height, rainIntensity);
+            }
 
-            // Pass to city manager
+            // --- City shader ---
             city.setBoatTransform(boatX, boatWaveY, boatZ + boatSweepZ, boatYaw);
-                
+
             cityShader.bind();
-            cityShader.setUniformMatrix4f("projection", camera.getProjectionMatrix(width, height));
-            cityShader.setUniformMatrix4f("view",       camera.getViewMatrix());
-            cityShader.setUniformMatrix4f("model",      new org.joml.Matrix4f());
-            cityShader.setUniformVec3("sunDirection",   sunX, sunY, 0.3f);
-            cityShader.setUniformVec3("cameraPos",      camera.getPosition());
-            cityShader.setUniformFloat("waterLevel",    waterLevel);
+            cityShader.setUniformMatrix4f("projection",    camera.getProjectionMatrix(width, height));
+            cityShader.setUniformMatrix4f("view",          camera.getViewMatrix());
+            cityShader.setUniformMatrix4f("model",         new org.joml.Matrix4f());
+            cityShader.setUniformVec3("sunDirection",      sunX, sunY, 0.3f);
+            cityShader.setUniformVec3("cameraPos",         camera.getPosition());
+            cityShader.setUniformFloat("waterLevel",       waterLevel);
+            cityShader.setUniformVec3("skyColor",          skyRFinal, skyGFinal, skyBFinal);
+            cityShader.setUniformFloat("fogStart",         fogStartFinal);
+            cityShader.setUniformFloat("fogEnd",           fogEndFinal);
+            cityShader.setUniformFloat("tsunamiTime",      tsunamiActive ? tsunamiTime : 0.0f);
+            cityShader.setUniformInt(  "tsunamiActive",    tsunamiActive ? 1 : 0);
+            cityShader.setUniformFloat("tsunamiOriginX",   tsunamiOriginX);
+            cityShader.setUniformFloat("tsunamiOriginZ",   tsunamiOriginZ);
+            cityShader.setUniformVec3("moonDirection",     moonX, moonY2, 0.3f);
 
-            cityShader.setUniformVec3("skyColor", stormSkyR, stormSkyG, stormSkyB);
-            cityShader.setUniformFloat("fogStart", fogStart);
-            cityShader.setUniformFloat("fogEnd",   fogEnd);
-
-            cityShader.setUniformFloat("tsunamiTime",    tsunamiActive ? tsunamiTime : 0.0f);
-            cityShader.setUniformInt(  "tsunamiActive",  tsunamiActive ? 1 : 0);
-            cityShader.setUniformFloat("tsunamiOriginX", tsunamiOriginX);  // should already exist
-            cityShader.setUniformFloat("tsunamiOriginZ", tsunamiOriginZ);  // should already exist
-
-            cityShader.setUniformVec3("moonDirection",  moonX, moonY2, 0.3f);
-            
             city.render(cityShader);
             cityShader.unbind();
 
@@ -377,14 +370,14 @@ public class OceanRenderer {
 
     private void updateCinematicCamera() {
         cinematicTime += 0.016f;
-        float t = cinematicTime % 76.0f;  // 120 second full cycle
+        float t = cinematicTime % 71.0f;
 
         Vector3f targetPos;
         float    targetYaw;
         float    targetPitch;
 
         if (t < 10.0f) {
-            // --- Shot 1: Street level facing ocean ---
+            // Street level in the city looking toward the ocean
             float drift = t / 10.0f;
             targetPos   = new Vector3f(
                 lerp(5, -5, drift),
@@ -395,7 +388,7 @@ public class OceanRenderer {
             targetPitch = -2.0f;
 
         } else if (t < 20.0f) {
-            // --- Shot 2: Beach level, wave on horizon ---
+            // Down on the beach watching the horizon
             float drift = (t - 10.0f) / 10.0f;
             targetPos   = new Vector3f(
                 lerp(-30, -20, drift),
@@ -406,7 +399,7 @@ public class OceanRenderer {
             targetPitch = -1.0f;
 
         } else if (t < 27.0f) {
-            // --- Shot 3: Quick close on boat as wave arrives --- (7s only)
+            // Close on the boat as the wave arrives
             float drift = (t - 20.0f) / 7.0f;
             targetPos   = new Vector3f(
                 lerp(-85, -75, drift),
@@ -416,22 +409,20 @@ public class OceanRenderer {
             targetYaw   = 30.0f;
             targetPitch = lerp(-5.0f, -10.0f, drift);
 
-        } else if (t < 39.0f) {
-            // --- Shot 4: Aerial view directly above boat being swept inland ---
-            // Camera sits high above the boat's actual live position
-            float drift = (t - 27.0f) / 12.0f;
-            float liveBoatZ = boatZ + boatSweepZ;  // follows boat as it moves
-
+        }  else if (t < 39.0f) {
+            // Start high above the boat then slowly descend as it settles on land
+            float drift     = (t - 27.0f) / 12.0f;
+            float liveBoatZ = boatZ + boatSweepZ;
             targetPos = new Vector3f(
-                lerp(-70, -70, drift),   // stay above boat X
-                lerp( 45,  55, drift),   // high up looking down
-                lerp(liveBoatZ, liveBoatZ + 5, drift)  // drift with boat
+                -70,
+                lerp(90, 45, drift),        // starts very high, descends as boat slows
+                lerp(liveBoatZ - 10, liveBoatZ + 5, drift)
             );
             targetYaw   = 90.0f;
-            targetPitch = -85.0f;        // nearly straight down — boat visible below
+            targetPitch = lerp(-89.0f, -70.0f, drift);  // nearly straight down at first, tilts to angle as we descend
 
         } else if (t < 51.0f) {
-            // --- Shot 5: Rising aerial as wave floods city ---
+            // Rising overhead as the wave pushes into the city
             float drift = (t - 39.0f) / 12.0f;
             targetPos   = new Vector3f(
                 lerp(  0,  10, drift),
@@ -442,7 +433,7 @@ public class OceanRenderer {
             targetPitch = lerp(-25.0f, -80.0f, drift);
 
         } else if (t < 61.0f) {
-            // --- Shot 6: God's eye straight down ---
+            // Straight down over the flooded city
             float drift = (t - 51.0f) / 10.0f;
             targetPos   = new Vector3f(
                 lerp(10,   0, drift),
@@ -453,7 +444,7 @@ public class OceanRenderer {
             targetPitch = -89.0f;
 
         } else {
-            // --- Shot 7: Pull back out to sea ---
+            // Pulling back out to sea looking at the submerged skyline
             float drift = (t - 61.0f) / 10.0f;
             targetPos   = new Vector3f(
                 lerp(  0,  20, drift),
@@ -464,8 +455,7 @@ public class OceanRenderer {
             targetPitch = lerp(-5.0f, -12.0f, drift);
         }
 
-        // Update cycle length and smooth speed
-        float smoothSpeed = 0.035f;
+        float smoothSpeed   = 0.035f;
         Vector3f currentPos = camera.getPosition();
         currentPos.x = lerp(currentPos.x, targetPos.x, smoothSpeed);
         currentPos.y = lerp(currentPos.y, targetPos.y, smoothSpeed);
@@ -475,72 +465,62 @@ public class OceanRenderer {
 
     private float sampleWaveHeight(float wx, float wz, float t) {
         if (tsunamiActive) {
-            float dx        = wx - tsunamiOriginX;
-            float dz        = wz - tsunamiOriginZ;
-            float dist      = (float)Math.sqrt(dx*dx + dz*dz);
-            float waveFront = tsunamiTime * 40.0f;
+            float dx            = wx - tsunamiOriginX;
+            float dz            = wz - tsunamiOriginZ;
+            float dist          = (float)Math.sqrt(dx*dx + dz*dz);
+            float waveFront     = tsunamiTime * 40.0f;
             float distFromFront = dist - waveFront;
 
             float depth    = Math.max(0, Math.min(1, (-wz + 15.0f) / 315.0f));
             float shoaling = 1.0f + (1.0f - depth) * 3.0f;
-            float tsunamiShoreMask = smoothstep(300.0f, 0.0f, wz);
-            shoaling *= tsunamiShoreMask;
+            shoaling      *= smoothstep(300.0f, 0.0f, wz);
 
-            // Main wave envelope
             float frontWidth = 25.0f, backWidth = 80.0f;
             float envelope;
             if (distFromFront <= 0.0f)
-                envelope = (float)Math.exp(-(distFromFront*distFromFront)
-                        / (backWidth*backWidth));
+                envelope = (float)Math.exp(-(distFromFront*distFromFront) / (backWidth*backWidth));
             else
-                envelope = (float)Math.exp(-(distFromFront*distFromFront)
-                        / (frontWidth*frontWidth));
+                envelope = (float)Math.exp(-(distFromFront*distFromFront) / (frontWidth*frontWidth));
 
             float mainWave = 15.0f * envelope * shoaling;
 
-            // Drawback
             float drawback = 0.0f;
             if (distFromFront > 0.0f && distFromFront < 120.0f) {
                 float drawT = distFromFront / 120.0f;
-                drawback = -3.5f * (float)Math.sin(drawT * Math.PI)
-                        * shoaling * 0.4f;
+                drawback = -3.5f * (float)Math.sin(drawT * Math.PI) * shoaling * 0.4f;
             }
 
-            // Surge
             float surge = 0.0f;
             if (distFromFront < -30.0f) {
-                float surgeDecay = Math.min(1.0f,
-                    (-distFromFront - 30.0f) / 200.0f);
+                float surgeDecay = Math.min(1.0f, (-distFromFront - 30.0f) / 200.0f);
                 surge = 6.0f * (1.0f - surgeDecay) * shoaling * 0.5f;
             }
 
             return mainWave + drawback + surge;
 
         } else {
-            // Normal Gerstner — match the 3 waves in ocean.vert
-            float moonY  = (float)Math.sin(timeOfDay * 2.0f * Math.PI + Math.PI);
-            float tidal  = 0.7f + 0.3f * (float)Math.cos(0.0f); // tidalStrength
-            float amp    = Math.min((0.8f + 0.6f * Math.max(moonY, 0)) * tidal,
-                                    0.9f / frequency);
+            float moonYLocal = (float)Math.sin(timeOfDay * 2.0f * Math.PI + Math.PI);
+            float tidal      = 0.7f + 0.3f * (float)Math.cos(0.0f);
+            float amp        = Math.min((0.8f + 0.6f * Math.max(moonYLocal, 0)) * tidal,
+                                        0.9f / frequency);
 
             float[][] dirs = {{0.0f, 1.0f}, {-0.3f, 1.0f}, {0.25f, 1.0f}};
             float[]   amps = {amp, amp * 0.6f, amp * 0.4f};
-            float[]   freqs= {frequency, frequency*1.3f, frequency*1.8f};
-            float[]   spds = {speed, speed*0.8f, speed*1.1f};
+            float[]   freqs= {frequency, frequency * 1.3f, frequency * 1.8f};
+            float[]   spds = {speed, speed * 0.8f, speed * 1.1f};
 
             float height = 0.0f;
             for (int i = 0; i < 3; i++) {
-                float[] d  = dirs[i];
-                float len  = (float)Math.sqrt(d[0]*d[0] + d[1]*d[1]);
-                float nx   = d[0]/len, nz = d[1]/len;
-                float phase= (nx*wx + nz*wz) * freqs[i] - t * spds[i];
-                height    += amps[i] * (float)Math.sin(phase);
+                float[] d   = dirs[i];
+                float len   = (float)Math.sqrt(d[0]*d[0] + d[1]*d[1]);
+                float nx    = d[0]/len, nz = d[1]/len;
+                float phase = (nx*wx + nz*wz) * freqs[i] - t * spds[i];
+                height     += amps[i] * (float)Math.sin(phase);
             }
             return height;
         }
     }
 
-    // Smoothstep helper needed above
     private float smoothstep(float edge0, float edge1, float x) {
         float t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
         return t * t * (3 - 2 * t);
