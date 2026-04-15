@@ -203,7 +203,9 @@ public class OceanRenderer {
             // Tsunami ramp 
             if (tsunamiActive) {
                 tsunamiStrength = Math.min(tsunamiStrength + 0.02f, 1.0f);
-                tsunamiTime    += 0.016f;
+                // Slow wave speed in cinematic mode — gives shots time to play out
+                float timeScale = cinematicMode ? 0.3f : 1.0f;
+                tsunamiTime += 0.016f * timeScale;
             } else {
                 // Let tsunamiTime drain slowly so flood recedes naturally
                 if (tsunamiTime > 0) {
@@ -302,7 +304,7 @@ public class OceanRenderer {
             );
 
             // Has the wave front reached the city yet?
-            float waveFrontAtCity = tsunamiTime * 40.0f; // same waveSpeed as shader
+            float waveFrontAtCity = tsunamiTime * 40.0f;
             arrivalFactor   = clamp(
                 (waveFrontAtCity - cityDist) / 30.0f, 0.0f, 1.0f);
 
@@ -375,84 +377,99 @@ public class OceanRenderer {
 
     private void updateCinematicCamera() {
         cinematicTime += 0.016f;
-
-        // The cinematic sequence has three shots that cycle:
-        //
-        // Shot 1 (0-15s)  — Wide establishing shot from out at sea
-        //                   looking toward the city
-        //
-        // Shot 2 (15-30s) — Side angle showing wave approaching
-        //                   from the left, city on the right
-        //
-        // Shot 3 (30-45s) — Low dramatic angle at water level
-        //                   looking along the coastline
-        //
-        // Shot 4 (45-60s) — High overhead looking straight down
-        //                   at the city as water floods in
-        //
-        // After 60s it loops back to shot 1
-
-        float t = cinematicTime % 60.0f;
+        float t = cinematicTime % 76.0f;  // 120 second full cycle
 
         Vector3f targetPos;
         float    targetYaw;
         float    targetPitch;
 
-        if (t < 15.0f) {
-            // Shot 1 — wide establishing shot from sea
-            // Slowly drift forward toward the city
-            float drift = t / 15.0f;
+        if (t < 10.0f) {
+            // --- Shot 1: Street level facing ocean ---
+            float drift = t / 10.0f;
             targetPos   = new Vector3f(
-                lerp(  0, 0,   drift),
-                lerp( 35, 28,  drift),
-                lerp(-180, -120, drift)
+                lerp(5, -5, drift),
+                lerp(3, 3, drift),
+                lerp(40, 35, drift)
             );
-            targetYaw   = 90.0f;   // looking toward positive Z (city)
-            targetPitch = -15.0f;
+            targetYaw   = 270.0f;
+            targetPitch = -2.0f;
 
-        } else if (t < 30.0f) {
-            // Shot 2 — side angle, wave approaching from left
-            float drift = (t - 15.0f) / 15.0f;
+        } else if (t < 20.0f) {
+            // --- Shot 2: Beach level, wave on horizon ---
+            float drift = (t - 10.0f) / 10.0f;
             targetPos   = new Vector3f(
-                lerp(-150, -100, drift),
-                lerp(  20,   25, drift),
-                lerp( -50,    0, drift)
+                lerp(-30, -20, drift),
+                lerp(1.5f, 2.0f, drift),
+                lerp(10, 5, drift)
             );
-            targetYaw   = 30.0f;   // angled toward city and wave
-            targetPitch = -10.0f;
+            targetYaw   = 260.0f;
+            targetPitch = -1.0f;
 
-        } else if (t < 45.0f) {
-            // Shot 3 — low dramatic angle at water level
-            float drift = (t - 30.0f) / 15.0f;
+        } else if (t < 27.0f) {
+            // --- Shot 3: Quick close on boat as wave arrives --- (7s only)
+            float drift = (t - 20.0f) / 7.0f;
             targetPos   = new Vector3f(
-                lerp( 60,  20, drift),
-                lerp(  6,   8, drift),
-                lerp(-30, -10, drift)
+                lerp(-85, -75, drift),
+                lerp(  5,   8, drift),
+                lerp(-25, -15, drift)
             );
-            targetYaw   = 100.0f;  // slightly angled
-            targetPitch =  -5.0f;  // nearly level with water
+            targetYaw   = 30.0f;
+            targetPitch = lerp(-5.0f, -10.0f, drift);
 
-        } else {
-            // Shot 4 — high overhead
-            float drift = (t - 45.0f) / 15.0f;
-            targetPos   = new Vector3f(
-                lerp(  0,  20, drift),
-                lerp(150, 130, drift),
-                lerp( 50,  60, drift)
+        } else if (t < 39.0f) {
+            // --- Shot 4: Aerial view directly above boat being swept inland ---
+            // Camera sits high above the boat's actual live position
+            float drift = (t - 27.0f) / 12.0f;
+            float liveBoatZ = boatZ + boatSweepZ;  // follows boat as it moves
+
+            targetPos = new Vector3f(
+                lerp(-70, -70, drift),   // stay above boat X
+                lerp( 45,  55, drift),   // high up looking down
+                lerp(liveBoatZ, liveBoatZ + 5, drift)  // drift with boat
             );
             targetYaw   = 90.0f;
-            targetPitch = -85.0f;  // looking almost straight down
+            targetPitch = -85.0f;        // nearly straight down — boat visible below
+
+        } else if (t < 51.0f) {
+            // --- Shot 5: Rising aerial as wave floods city ---
+            float drift = (t - 39.0f) / 12.0f;
+            targetPos   = new Vector3f(
+                lerp(  0,  10, drift),
+                lerp( 40, 120, drift),
+                lerp( 20,  60, drift)
+            );
+            targetYaw   = 90.0f;
+            targetPitch = lerp(-25.0f, -80.0f, drift);
+
+        } else if (t < 61.0f) {
+            // --- Shot 6: God's eye straight down ---
+            float drift = (t - 51.0f) / 10.0f;
+            targetPos   = new Vector3f(
+                lerp(10,   0, drift),
+                lerp(120, 140, drift),
+                lerp( 60,  60, drift)
+            );
+            targetYaw   = 90.0f;
+            targetPitch = -89.0f;
+
+        } else {
+            // --- Shot 7: Pull back out to sea ---
+            float drift = (t - 61.0f) / 10.0f;
+            targetPos   = new Vector3f(
+                lerp(  0,  20, drift),
+                lerp( 12,  18, drift),
+                lerp(-60, -80, drift)
+            );
+            targetYaw   = 90.0f;
+            targetPitch = lerp(-5.0f, -12.0f, drift);
         }
 
-        // Smoothly move camera toward target position
-        // This prevents jarring cuts between shots
+        // Update cycle length and smooth speed
+        float smoothSpeed = 0.035f;
         Vector3f currentPos = camera.getPosition();
-        float smoothSpeed   = 0.03f;
         currentPos.x = lerp(currentPos.x, targetPos.x, smoothSpeed);
         currentPos.y = lerp(currentPos.y, targetPos.y, smoothSpeed);
         currentPos.z = lerp(currentPos.z, targetPos.z, smoothSpeed);
-
-        // Smoothly rotate toward target angles
         camera.setCinematicAngles(targetYaw, targetPitch, smoothSpeed);
     }
 
