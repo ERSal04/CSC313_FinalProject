@@ -3,3 +3,6 @@
 
 # Ignore Gradle build output directory
 build
+
+# Too large of a file
+app/src/main/resources/sounds/rain_loop.wav
