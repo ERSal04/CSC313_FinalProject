@@ -10,6 +10,10 @@ public class ShaderProgram {
     
     private int programId;
 
+    public int getProgramId() {
+        return programId;  
+    }
+    
     public ShaderProgram(String vertecSource, String fragmentSource) {
         int vertexShader = GL20.glCreateShader(GL20.GL_VERTEX_SHADER);
         GL20.glShaderSource(vertexShader, vertecSource);

@@ -7,6 +7,7 @@ import org.lwjgl.opengl.GL11;
 import finalproject.Camera;
 import finalproject.CityManager;
 import finalproject.OceanMesh;
+import finalproject.RainSystem;
 import finalproject.ShaderProgram;
 
 public class OceanRenderer {
@@ -46,6 +47,9 @@ public class OceanRenderer {
     private ShaderProgram cityShader;
     private float waterLevel = 0.0f;
     private float speed = 0.8f;
+
+    private RainSystem rain;
+    private float rainIntensity = 0.0f;
 
     private ShaderProgram shaderProgram;
 
@@ -130,6 +134,8 @@ public class OceanRenderer {
         String cityFrag = ShaderProgram.loadFile("shaders/city.frag");
         cityShader = new ShaderProgram(cityVert, cityFrag);
 
+        rain = new RainSystem();
+
         GLFW.glfwSetCursorPosCallback(window, (win, xpos, ypos) -> {
             if (firstMouse) {
                 lastMouseX = xpos;
@@ -209,8 +215,16 @@ public class OceanRenderer {
             float sunY = (float)Math.sin(sunAngle);
 
             float duskFactor = 1.0f - Math.min(1.0f, Math.abs(sunY) * 2.0f);
-            float fogStart   = 100.0f - duskFactor * 40.0f;
-            float fogEnd     = 400.0f - duskFactor * 150.0f;
+            float stormDark  = rainIntensity * 0.35f;
+            float fogStart   = 100.0f - rainIntensity * 50.0f;  // fog closes in
+            float fogEnd     = 400.0f - rainIntensity * 180.0f; // horizon disappears
+
+            // Darken sky during storm
+            float stormSkyR  = lerp(skyR, 0.15f, rainIntensity * 0.6f) * (1.0f - stormDark * 0.3f);
+            float stormSkyG  = lerp(skyG, 0.18f, rainIntensity * 0.6f) * (1.0f - stormDark * 0.3f);
+            float stormSkyB  = lerp(skyB, 0.25f, rainIntensity * 0.6f) * (1.0f - stormDark * 0.1f);
+
+            GL11.glClearColor(stormSkyR, stormSkyG, stormSkyB, 1.0f);
 
             // Spring/neap cycle — stronger tides when sun and moon align
             float sunMoonAlignment = (float)Math.cos(sunAngle - moonAngle);
@@ -246,7 +260,7 @@ public class OceanRenderer {
             shaderProgram.setUniformVec2("direction",  1.0f, 0.0f);
             shaderProgram.setUniformFloat("tidalOffset", tidalWaterLevel);
 
-            shaderProgram.setUniformVec3("skyColor", skyR, skyG, skyB);
+            shaderProgram.setUniformVec3("skyColor", stormSkyR, stormSkyG, stormSkyB);
             shaderProgram.setUniformFloat("fogStart", fogStart);
             shaderProgram.setUniformFloat("fogEnd",   fogEnd);
 
@@ -312,6 +326,15 @@ public class OceanRenderer {
                 }
             }
 
+            // --- Storm intensity ---
+            // Rain ramps up when tsunami is active, fades out when off
+            float targetRain = tsunamiActive ? 1.0f : 0.0f;
+            rainIntensity = lerp(rainIntensity, targetRain, 0.008f);
+
+            // Update and render rain
+            rain.update(0.016f, rainIntensity);
+            rain.render(camera, width, height, rainIntensity);
+
             // Pass to city manager
             city.setBoatTransform(boatX, boatWaveY, boatZ + boatSweepZ, boatYaw);
                 
@@ -323,7 +346,7 @@ public class OceanRenderer {
             cityShader.setUniformVec3("cameraPos",      camera.getPosition());
             cityShader.setUniformFloat("waterLevel",    waterLevel);
 
-            cityShader.setUniformVec3("skyColor",   skyR, skyG, skyB);
+            cityShader.setUniformVec3("skyColor", stormSkyR, stormSkyG, stormSkyB);
             cityShader.setUniformFloat("fogStart", fogStart);
             cityShader.setUniformFloat("fogEnd",   fogEnd);
 
@@ -503,6 +526,7 @@ public class OceanRenderer {
         ocean.cleanup();
         cityShader.cleanup();
         city.cleanup();
+        rain.cleanup();
         GLFW.glfwDestroyWindow(window);
         GLFW.glfwTerminate();
     }
