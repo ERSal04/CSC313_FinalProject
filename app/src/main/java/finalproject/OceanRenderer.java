@@ -9,6 +9,7 @@ import finalproject.CityManager;
 import finalproject.OceanMesh;
 import finalproject.RainSystem;
 import finalproject.ShaderProgram;
+import finalproject.SoundManager;
 
 public class OceanRenderer {
 
@@ -47,9 +48,12 @@ public class OceanRenderer {
     private ShaderProgram cityShader;
     private float waterLevel = 0.0f;
     private float speed = 0.8f;
+    private float arrivalFactor = 0.0f;
 
     private RainSystem rain;
     private float rainIntensity = 0.0f;
+
+    private SoundManager sound;
 
     private ShaderProgram shaderProgram;
 
@@ -135,6 +139,8 @@ public class OceanRenderer {
         cityShader = new ShaderProgram(cityVert, cityFrag);
 
         rain = new RainSystem();
+
+        sound = new SoundManager();
 
         GLFW.glfwSetCursorPosCallback(window, (win, xpos, ypos) -> {
             if (firstMouse) {
@@ -297,7 +303,7 @@ public class OceanRenderer {
 
             // Has the wave front reached the city yet?
             float waveFrontAtCity = tsunamiTime * 40.0f; // same waveSpeed as shader
-            float arrivalFactor   = clamp(
+            arrivalFactor   = clamp(
                 (waveFrontAtCity - cityDist) / 30.0f, 0.0f, 1.0f);
 
             float peakFloodHeight = 18.0f;
@@ -359,6 +365,8 @@ public class OceanRenderer {
             
             city.render(cityShader);
             cityShader.unbind();
+
+            sound.update(tsunamiActive, rainIntensity, arrivalFactor, tsunamiTime);
 
             GLFW.glfwSwapBuffers(window);
             GLFW.glfwPollEvents();
@@ -527,6 +535,7 @@ public class OceanRenderer {
         cityShader.cleanup();
         city.cleanup();
         rain.cleanup();
+        sound.cleanup();
         GLFW.glfwDestroyWindow(window);
         GLFW.glfwTerminate();
     }
